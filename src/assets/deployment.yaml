@@ -5,7 +5,6 @@ metadata:
   labels:
     app: tf2
     {{ label }}/bookedBy: "{{ id }}"
-    {{ label }}/bookerName: "{{ bookerName }}"
     {{ label }}/token: "{{ gameServerToken }}"
     {{ label }}/gamePassword: "{{ password }}"
     {{ label }}/rconPassword: "{{ rconPassword }}"

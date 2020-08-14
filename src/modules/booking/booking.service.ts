@@ -8,6 +8,7 @@ import * as yaml from "js-yaml";
 import * as fs from "fs";
 import * as crypto from "crypto";
 import * as config from "../../../config.json"
+import { decode } from 'punycode';
 
 const tokens = config.tokens;
 const IP = config.ip;
@@ -31,7 +32,6 @@ export class BookingService {
     const inUse = deps.body.items.length;
     const bookings: BookingDTO[] = deps.body.items.map((e): BookingDTO => ({
       id: e.metadata.labels[`${APP_LABEL}/bookedBy`],
-      name: e.metadata.labels[`${APP_LABEL}/bookerName`].replace("___", "#"),
       password: e.metadata.labels[`${APP_LABEL}/gamePassword`],
       rconPassword: e.metadata.labels[`${APP_LABEL}/rconPassword`],
       port: e.metadata.labels[`${APP_LABEL}/gamePort`],
@@ -59,12 +59,10 @@ export class BookingService {
     const rconPassword = crypto.randomBytes(4).toString('hex')
     const token = await this.getFreeServerToken();
     const port = await this.getFreeServerPort();
-    const name = data.name?.replace("#", "___") || "";
     const ip = IP;
     const renderData = {
       label: APP_LABEL,
       id: data.id,
-      bookerName: name,
       map: "cp_badlands",
       gameServerToken: token,
       imageName: config.instance.image.name,
@@ -83,7 +81,7 @@ export class BookingService {
     this.logger.log(`Server booked by ${data.id}, (${ip} ${port} ${password} ${rconPassword})`);
 
     return {
-      id: data.id, name,
+      id: data.id,
       region: "",
       connectString: `connect ${ip}:${port}; password ${password}; rcon_password ${rconPassword}`,
       tvPort: port + 1,
