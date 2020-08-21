@@ -4,35 +4,23 @@ metadata:
   name: 'tf2-{{ id }}'
   labels:
     app: tf2
-    {{ label }}/bookedBy: "{{ id }}"
-    {{ label }}/token: "{{ gameServerToken }}"
-    {{ label }}/gamePassword: "{{ password }}"
-    {{ label }}/rconPassword: "{{ rconPassword }}"
-    {{ label }}/gamePort: "{{ gamePort }}"
-    {{ label }}/tvPort: "{{ tvPort }}"
+    {{ label }}/id: "{{ id }}"
 spec:
   selector:
     matchLabels:
       app: tf2
       instance: 'tf2-{{ id }}'
-      {{ label }}/bookedBy: "{{ id }}"
   template:
     metadata:
       labels:
         app: tf2
         instance: 'tf2-{{ id }}'
-        {{ label }}/bookedBy: "{{ id }}"
     spec:
-      terminationGracePeriodSeconds: 3
+      terminationGracePeriodSeconds: 1
       hostNetwork: true
       containers:
       - name: 'instance'
-        image: '{{ imageName }}:{{ imageTag }}'
+        image: '{{ image }}'
         command: [ "/bin/bash" ]
-        args: [ "-c", "cd /root/tf2 && ./srcds_run +sv_setsteamaccount \"{{ gameServerToken }}\" +map \"{{ map }}\"  +port {{ gamePort }}  +tv_port {{ tvPort }} +ip {{ ip }} +servercfgfile server +sv_password {{ password }} +rcon_password {{ rconPassword }} +tv_enable 1 +tv_title \"{{ tvName }}\" +tv_name \"{{ tvName }}\" {{ extraArguments }}" ]
-        imagePullPolicy: IfNotPresent          
-        resources:
-          limits:
-            memory: 2500Mi
-          requests:
-            memory: 2500Mi
+        args: [ "-c", "{{ args }}" ]
+        imagePullPolicy: IfNotPresent     

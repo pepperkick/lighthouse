@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Delete, Get, Param } from '@nestjs/common';
+import { Controller, Post, Body, Delete, Get, Param, BadRequestException } from '@nestjs/common';
 import { BookingService } from './booking.service';
 import { PostBookDTO } from './dto/post-book.dto';
 import { BookingDTO } from './dto/booking.dto';
@@ -8,18 +8,25 @@ import { BookingStatusDTO } from './dto/booking-status.dto';
 export class BookingController {
   constructor(private readonly service: BookingService) {}
 
-  @Get("/book")
-  async bookStatus(): Promise<BookingStatusDTO> {
-    return await this.service.bookStatus();
+  @Get()
+  async allBookStatus(): Promise<BookingStatusDTO> {
+    return await this.service.statusAll();
   }
 
-  @Post("/book")
+  @Get("/:id")
+  async bookStatus(@Param("id") id: string): Promise<BookingDTO> {
+    if (!id || id == "") throw new BadRequestException("Invalid Booking ID");
+
+    return await this.service.statusById(id);
+  }
+
+  @Post()
   async bookServer(@Body() data: PostBookDTO): Promise<BookingDTO> {
-    return await this.service.bookServer(data);
+    return await this.service.book(data);
   }
 
-  @Delete("/book/:id")
+  @Delete("/:id")
   async unbookServer(@Param("id") id: string): Promise<void> {
-    return await this.service.unbookServer(id);
+    return await this.service.unbook(id);
   }
 }

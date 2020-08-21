@@ -1,5 +1,5 @@
 export interface BookingDTO {
-  id: string
+  _id: string
   ip: string
   port: number
   tvPort: number
