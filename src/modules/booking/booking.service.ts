@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, ConflictException, NotFoundException, HttpException, HttpService, HttpStatus, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, NotFoundException, HttpException, HttpService, HttpStatus, Logger, InternalServerErrorException } from '@nestjs/common';
 import { BookingDTO } from './dto/booking.dto';
 import { BookingStatusDTO } from './dto/booking-status.dto';
 import { PostBookDTO } from './dto/post-book.dto';
@@ -13,8 +13,8 @@ import { Model } from 'mongoose';
 import axios from 'axios';
 import { BookingChart } from './booking.chart';
 import { v4 as uuid } from 'uuid';
+import { GSTokenService } from '../gstoken/gstoken.service';
 
-const tokens = config.tokens;
 const IP = config.ip;
 
 enum StatusEvent {
@@ -28,7 +28,7 @@ export class BookingService {
   private readonly kube = new ApiClient.Client1_13({ version: '1.13' });
   private timers = {};
 
-  constructor(@InjectModel(Booking.name) private Booking: Model<Booking>) {
+  constructor(@InjectModel(Booking.name) private Booking: Model<Booking>, private tokenService: GSTokenService) {
     this.monitorServers();
   }
 
@@ -63,41 +63,47 @@ export class BookingService {
     await this.checkForLimits();
     await this.checkHasBooking(data.id);
 
+    const token = await (await this.tokenService.reserve()).login_token;
+    const port = await this.getFreeServerPort();
     const password = crypto.randomBytes(4).toString('hex')
     const rconPassword = crypto.randomBytes(4).toString('hex')
-    const token = await this.getFreeServerToken();
-    const port = await this.getFreeServerPort();
     const ip = IP;
-      
-    const booking = new this.Booking();
-    booking._id = data.id || uuid();
-    booking.id = data.id || uuid();
-    booking.password = password;
-    booking.rconPassword = rconPassword;
-    booking.port = port;
-    booking.tvPort = port + 1;
-    booking.token = token;
-    booking.ip = ip;
-    booking.callbackUrl = data.callbackUrl || "";
-    booking.metadata = data.metadata;
-    await booking.save();
 
-    const chart = BookingChart.render({
-      id: booking.id,
-      image: `${config.instance.image.name}:${config.instance.image.tag}`,
-      hostname: config.instance.hostname,
-      tv: { port: port + 1, name: config.instance.tv_name },
-      password, rconPassword, token, port, ip,
-    });
-
-    await this.kube.apis.app.v1
-      .namespaces(config.namespace).deployments.post({ body: yaml.load(chart) });
+    try {        
+      const booking = new this.Booking();
+      booking._id = data.id || uuid();
+      booking.id = data.id || uuid();
+      booking.password = password;
+      booking.rconPassword = rconPassword;
+      booking.port = port;
+      booking.tvPort = port + 1;
+      booking.token = token;
+      booking.ip = ip;
+      booking.callbackUrl = data.callbackUrl || "";
+      booking.metadata = data.metadata;
+      await booking.save();
   
-    await this.notifyViaUrl(booking.callbackUrl, StatusEvent.BOOK);
-
-    this.logger.log(`Server booked ${data.id}, (${ip}:${port} ${password} ${rconPassword})`);
-
-    return booking;
+      const chart = BookingChart.render({
+        id: booking.id,
+        image: `${config.instance.image.name}:${config.instance.image.tag}`,
+        hostname: config.instance.hostname,
+        tv: { port: port + 1, name: config.instance.tv_name },
+        password, rconPassword, token, port, ip,
+      });
+  
+      await this.kube.apis.app.v1
+        .namespaces(config.namespace).deployments.post({ body: yaml.load(chart) });
+    
+      await this.notifyViaUrl(booking.callbackUrl, StatusEvent.BOOK);
+  
+      this.logger.log(`Server booked ${data.id}, (${ip}:${port} ${password} ${rconPassword})`);
+  
+      return booking;
+    } catch (error) {
+      this.logger.error(`Failed to create booking for id ${data.id}`, error);
+      await this.tokenService.release(token);
+      throw new InternalServerErrorException("Failed to create booking");
+    }
   }
   
   /**
@@ -128,27 +134,13 @@ export class BookingService {
         delete this.timers[id];
       }
 
+      await this.tokenService.release(booking.token);
       await this.Booking.deleteOne({ _id: id });
     }
 
     await this.notifyViaUrl(booking.callbackUrl, StatusEvent.UNBOOK);
 
     this.logger.log(`Server unbooked ${id}`);
-  }
-
-  /**
-   * Get free server token
-   */
-  async getFreeServerToken() {
-    const bookings = await this.Booking.find();
-
-    const inUseTokens = bookings.map(e => e.token);
-    const freeTokens = tokens.filter(e => !inUseTokens.includes(e));
-  
-    if (freeTokens.length === 0) 
-      throw new HttpException(`Reached limit`, HttpStatus.TOO_MANY_REQUESTS);
-
-    return freeTokens[Math.floor(Math.random() * freeTokens.length)];
   }
 
   /**
