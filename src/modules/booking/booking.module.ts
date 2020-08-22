@@ -4,6 +4,7 @@ import { BookingController } from "./booking.controller";
 import { BookingService } from "./booking.service";
 import { Booking, BookingSchema } from "./booking.model";
 import { GSTokenModule } from "../gstoken/gstoken.module";
+import { ElasticService } from "./elastic.service";
 
 @Module({
   imports: [ 
@@ -13,6 +14,6 @@ import { GSTokenModule } from "../gstoken/gstoken.module";
     ]) 
   ],
   controllers: [ BookingController ],
-  providers: [ BookingService ],
+  providers: [ BookingService, ElasticService ],
 })
 export class BookingModule {}

@@ -1,6 +1,10 @@
 {
   "mongodbUri": "",
   "steamWebToken": "",
+  "elastic": {
+    "host": "",
+    "index": "lighthouse-bookings"
+  },
   "limit": 2,
   "namespace": "",
   "ip": "",

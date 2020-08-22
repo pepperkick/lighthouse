@@ -14,6 +14,7 @@ import axios from 'axios';
 import { BookingChart } from './booking.chart';
 import { v4 as uuid } from 'uuid';
 import { GSTokenService } from '../gstoken/gstoken.service';
+import { ElasticService } from './elastic.service';
 
 const IP = config.ip;
 
@@ -28,7 +29,11 @@ export class BookingService {
   private readonly kube = new ApiClient.Client1_13({ version: '1.13' });
   private timers = {};
 
-  constructor(@InjectModel(Booking.name) private Booking: Model<Booking>, private tokenService: GSTokenService) {
+  constructor(
+    @InjectModel(Booking.name) private Booking: Model<Booking>, 
+    private elasticService: ElasticService,
+    private tokenService: GSTokenService
+  ) {
     this.monitorServers();
   }
 
@@ -97,6 +102,12 @@ export class BookingService {
       await this.notifyViaUrl(booking.callbackUrl, StatusEvent.BOOK);
   
       this.logger.log(`Server booked ${data.id}, (${ip}:${port} ${password} ${rconPassword})`);
+
+      this.elasticService.sendData({
+        timestamp: new Date(),
+        event: StatusEvent.BOOK,
+        ...this.extractDetails(booking)
+      });
   
       return booking;
     } catch (error) {
@@ -135,6 +146,13 @@ export class BookingService {
       }
 
       await this.tokenService.release(booking.token);
+      
+      this.elasticService.sendData({
+        timestamp: new Date(),
+        event: StatusEvent.UNBOOK,
+        ...this.extractDetails(booking)
+      });
+
       await this.Booking.deleteOne({ _id: id });
     }
 
@@ -252,5 +270,19 @@ export class BookingService {
         this.logger.error(`Failed to monitor servers due to ${error}`);
       }
     }, 30 * 1000);
+  }
+
+  /**
+   * Extract details of booking
+   * 
+   * @param booking Booking
+   */
+  extractDetails(booking: Booking) {    
+    return {
+      id: booking.id,
+      ip: booking.ip,
+      port: booking.port.toString(),
+      token: booking.token
+    }
   }
 }
