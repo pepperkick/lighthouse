@@ -4,18 +4,18 @@ import * as config from "../../../config.json"
 
 @Injectable()
 export class ElasticService {
-  private readonly logger = new Logger(ElasticService.name);
-  elastic: Client;
+	private readonly logger = new Logger(ElasticService.name);
+	elastic: Client;
 
-  constructor() {
-    this.elastic = new Client({ node: config.elastic.host })
-  }
+	constructor() {
+		this.elastic = new Client({ node: config.elastic.host })
+	}
 
-  async sendData(body: {}) {
-    this.logger.debug(`Sending elastic data at index ${config.elastic.index} with body: ${JSON.stringify(body)}`);
-    await this.elastic.index({
-      index: config.elastic.index,
-      body
-    });
-  }
+	async sendData(body: {}) {
+		this.logger.debug(`Sending elastic data at index ${config.elastic.index} with body: ${JSON.stringify(body)}`);
+		await this.elastic.index({
+			index: config.elastic.index,
+			body
+		});
+	}
 }

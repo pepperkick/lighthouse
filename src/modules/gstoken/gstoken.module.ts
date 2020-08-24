@@ -4,11 +4,11 @@ import { MongooseModule } from "@nestjs/mongoose";
 import { GSToken, GSTokenSchema } from "./gstoken.model";
 
 @Module({
-  imports: [ MongooseModule.forFeature([
-    { name: GSToken.name, schema: GSTokenSchema }
-  ])],
-  controllers: [ ],
-  providers: [ GSTokenService ],
-  exports: [ GSTokenService ]
+	imports: [ MongooseModule.forFeature([
+		{ name: GSToken.name, schema: GSTokenSchema }
+	])],
+	controllers: [ ],
+	providers: [ GSTokenService ],
+	exports: [ GSTokenService ]
 })
 export class GSTokenModule {}

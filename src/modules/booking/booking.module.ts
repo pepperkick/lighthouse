@@ -5,15 +5,17 @@ import { BookingService } from "./booking.service";
 import { Booking, BookingSchema } from "./booking.model";
 import { GSTokenModule } from "../gstoken/gstoken.module";
 import { ElasticService } from "./elastic.service";
+import { ProviderModule } from "../provider/provider.module";
 
 @Module({
-  imports: [ 
-    GSTokenModule, 
-    MongooseModule.forFeature([
-      { name: Booking.name, schema: BookingSchema }
-    ]) 
-  ],
-  controllers: [ BookingController ],
-  providers: [ BookingService, ElasticService ],
+	imports: [ 
+		GSTokenModule, 
+		ProviderModule,
+		MongooseModule.forFeature([
+			{ name: Booking.name, schema: BookingSchema }
+		]) 
+	],
+	controllers: [ BookingController ],
+	providers: [ BookingService, ElasticService ],
 })
 export class BookingModule {}
