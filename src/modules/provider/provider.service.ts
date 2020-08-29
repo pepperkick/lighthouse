@@ -4,6 +4,7 @@ import { Model } from "mongoose";
 import { Provider, ProviderType } from "./provider.model";
 import { InstanceOptions } from "./handler.class";
 import { KubernetesHandler } from "./provider-handlers/kubernentes.class";
+import { GCloudHandler } from "./provider-handlers/gcloud.class";
 
 @Injectable()
 export class ProviderService {
@@ -37,6 +38,15 @@ export class ProviderService {
 						...provider.selectors
 					});
 					break;
+				case ProviderType.GCloud:
+					data.push({
+						id: provider.id,
+						limit: provider.limit,
+						inUse: provider.inUse.length,
+						name: provider.name,
+						...provider.selectors
+					});
+					break;
 			}
 		}
 
@@ -48,8 +58,9 @@ export class ProviderService {
 		
 		switch(provider.type) {
 			case ProviderType.KubernetesNode:
-				const handler = new KubernetesHandler(provider);
-				return handler.createInstance(options);
+				return new KubernetesHandler(provider).createInstance(options);
+			case ProviderType.GCloud:
+				return new GCloudHandler(provider).createInstance(options);
 		}
 	}
 
@@ -58,8 +69,9 @@ export class ProviderService {
 		this.logger.debug(`Deleting instance id ${id} at ${provider.name}`);
 		switch(provider.type) {
 			case ProviderType.KubernetesNode:
-				const handler = new KubernetesHandler(provider);
-				return handler.destroyInstance(id);
+				return new KubernetesHandler(provider).destroyInstance(id);
+			case ProviderType.GCloud:
+				return new GCloudHandler(provider).destroyInstance(id);
 		}
 	}
 }

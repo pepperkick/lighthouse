@@ -14,13 +14,16 @@ import { v4 as uuid } from 'uuid';
 import { GSTokenService } from '../gstoken/gstoken.service';
 import { ElasticService } from './elastic.service';
 import { ProviderService } from '../provider/provider.service';
-import { Provider } from '../provider/provider.model';
-
-const IP = config.ip;
 
 enum StatusEvent {
-	BOOK = 'book',
-	UNBOOK = 'unbook'
+	BOOK = 'BOOK',
+	BOOK_START = 'BOOK_START',
+	BOOK_FAILED = 'BOOK_FAILED',
+	BOOK_END = 'BOOK_END',
+	UNBOOK = 'UNBOOK',
+	UNBOOK_START = 'UNBOOK_START',
+	UNBOOK_FAILED = 'UNBOOK_FAILED',
+	UNBOOK_END = 'UNBOOK_END'
 }
 
 @Injectable()
@@ -75,6 +78,8 @@ export class BookingService {
 		}
 
 		try {        
+			await this.notifyViaUrl(data.callbackUrl, StatusEvent.BOOK_START, { metadata: data.metadata });
+
 			const instance = await this.providerService.createInstance(provider, {
 				id: data.id || uuid(),
 				token,
@@ -97,7 +102,7 @@ export class BookingService {
 			booking.metadata = data.metadata;
 			await booking.save();
 		
-			await this.notifyViaUrl(booking.callbackUrl, StatusEvent.BOOK);
+			await this.notifyViaUrl(data.callbackUrl, StatusEvent.BOOK_END, { booking: booking.toJSON(), metadata: data.metadata });
 	
 			this.logger.log(`Server booked ${data.id}, (${instance.ip}:${instance.port} ${password} ${rconPassword})`);
 
@@ -110,7 +115,9 @@ export class BookingService {
 			return booking;
 		} catch (error) {
 			this.logger.error(`Failed to create booking for id ${data.id}`, error);
+			console.log(error);
 			await this.tokenService.release(token);
+			await this.notifyViaUrl(data.callbackUrl, StatusEvent.BOOK_FAILED, { metadata: data.metadata });
 			throw new InternalServerErrorException("Failed to create booking");
 		}
 	}
@@ -126,9 +133,13 @@ export class BookingService {
 		if (!booking) 
 			throw new NotFoundException(`Could not find any booking with ID ${id}`);
 
+		await this.notifyViaUrl(booking.callbackUrl, StatusEvent.UNBOOK_START, { metadata: booking.metadata });
+
 		try {
 			await this.providerService.deleteInstance(booking.provider, booking.id);
+			await this.Booking.deleteOne({ _id: id });
 		} catch (error) {
+			await this.notifyViaUrl(booking.callbackUrl, StatusEvent.UNBOOK_FAILED, { metadata: booking.metadata });
 			if (error.statusCode === 404) {
 				this.logger.warn(`Found booking entry for "${id}" but could not find deployment, removing entry.`);
 			} else {
@@ -149,23 +160,11 @@ export class BookingService {
 				event: StatusEvent.UNBOOK,
 				...this.extractDetails(booking)
 			});
-
-			await this.Booking.deleteOne({ _id: id });
 		}
 
-		await this.notifyViaUrl(booking.callbackUrl, StatusEvent.UNBOOK);
+		await this.notifyViaUrl(booking.callbackUrl, StatusEvent.UNBOOK_END, { metadata: booking.metadata });
 
 		this.logger.log(`Server unbooked ${id}`);
-	}
-
-	/**
-	 * Check if there are too many deployments already
-	 */
-	async checkForLimits() {    
-		const bookings = await this.Booking.find();
-
-		if (bookings.length === config.limit)
-			throw new HttpException(`Reached limit`, HttpStatus.TOO_MANY_REQUESTS);
 	}
 
 	/**
@@ -185,13 +184,14 @@ export class BookingService {
 	 * 
 	 * @param url Url to request
 	 * @param event Name of the event to send
+	 * @param data Data to send
 	 */
-	async notifyViaUrl(url: string, event: string) {
+	async notifyViaUrl(url: string, event: string, data = {}) {
 		if (!url) return;    
 		this.logger.log(`Notifying URL ${url} for event ${event}`);
 
 		try {  
-			return await axios.get(`${url}?status=${event}`);
+			return await axios.post(`${url}?status=${event}`, data);
 		} catch (error) {
 			if (error.code === "ECONNREFUSED") {
 				this.logger.warn(`Failed to connect callback URL "${url}"`);
@@ -224,7 +224,7 @@ export class BookingService {
 							type: "tf2"
 						});
 		
-						this.logger.debug(`Pinged ${booking.ip}:${booking.port} server, ${data.players.length} playing`);
+						this.logger.debug(`Pinged ${booking._id} (${booking.ip}:${booking.port}) server, ${data.players.length} playing`);
 						if (data.players.length < 2) {
 							if (!this.timers[id]) {
 								this.timers[id] = setTimeout(() => this.unbook(id), config.waitPeriod * 1000);
@@ -239,6 +239,10 @@ export class BookingService {
 						}
 					} catch (error) {
 						this.logger.error(`Failed to query server ${id} (${booking.ip}:${booking.port}) due to ${error}`);
+						if (!this.timers[id]) {
+							this.timers[id] = setTimeout(() => this.unbook(id), config.waitPeriod * 1000);
+							this.logger.log(`Marked server ${id} for closure in next ${config.waitPeriod} seconds`);
+						}
 					}
 				}
 			} catch (error) {

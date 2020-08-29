@@ -4,7 +4,7 @@ import * as config from "../../../config.json"
 
 const APP_LABEL = config.label;
 
-interface BookingOptions {
+export interface BookingOptions {
 	/**
 	 * Deployment ID
 	 */
@@ -13,7 +13,7 @@ interface BookingOptions {
 	/**
 	 * Image name to use
 	 */
-	image: string
+	image?: string
 
 	/**
 	 * GSLT Token
@@ -23,17 +23,17 @@ interface BookingOptions {
 	/**
 	 * Server IP to bind
 	 */
-	ip: string
+	ip?: string
 
 	/**
 	 * Server port to bind
 	 */
-	port: number
+	port?: number
 
 	/**
 	 * Node hostname to use
 	 */
-	hostname: string
+	hostname?: string
 
 	/**
 	 * Server name to use
@@ -67,7 +67,7 @@ interface BookingOptions {
 		/**
 		 * Server port to bind source tv
 		 */
-		port: number,
+		port?: number,
 
 		/**
 		 * Name for source tv
@@ -79,22 +79,7 @@ interface BookingOptions {
 
 export class BookingChart {
 	static render(options: BookingOptions) {
-		let args = "cd /root/tf2 && ./srcds_run +servercfgfile server -condebug";
-		args += ` +sv_setsteamaccount \\"${options.token}\\"`;
-		args += ` +ip ${options.ip}`;
-		args += ` +port ${options.port}`;
-		args += ` +hostname \\"${options.servername || "Team Fortress"}\\"`;
-		args += ` +sv_password \\"${options.password || ""}\\"`;
-		args += ` +rcon_password \\"${options.rconPassword || ""}\\"`;
-		args += ` +map \\"${options.map || "cp_badlands"}\\"`;
-
-		if (options.tv) {
-			args += ` +tv_enable 1`;
-			args += ` +tv_name \\"${options.tv.name || "SourceTV"}\\"`;
-			args += ` +tv_title \\"${options.tv.name || "SourceTV"}\\"`;
-			args += ` +tv_port ${options.tv.port}`;
-		}
-
+		const args = this.getArgs(options);
 		const app = "tf2"
 		return this.renderString(fs.readFileSync(__dirname + '/../../../assets/deployment.yaml').toString(), {
 			label: APP_LABEL,
@@ -103,6 +88,28 @@ export class BookingChart {
 			hostname: options.hostname,
 			args: args       
 		});
+	}
+
+	static getArgs(options: BookingOptions) {		
+		let args = "./srcds_run +servercfgfile server -condebug";
+		args += ` +sv_setsteamaccount \\"${options.token}\\"`;
+		args += ` +hostname \\"${options.servername || "Team Fortress"}\\"`;
+		args += ` +sv_password \\"${options.password || ""}\\"`;
+		args += ` +rcon_password \\"${options.rconPassword || ""}\\"`;
+		args += ` +map \\"${options.map || "cp_badlands"}\\"`;			
+		args += ` +port ${options.port || "27015"}`;
+
+		if (options.ip)
+			args += ` +ip ${options.ip}`;
+
+		if (options.tv) {
+			args += ` +tv_enable 1`;
+			args += ` +tv_name \\"${options.tv.name || "SourceTV"}\\"`;
+			args += ` +tv_title \\"${options.tv.name || "SourceTV"}\\"`;
+			args += ` +tv_port ${options.tv.port || "27020"}`;
+		}
+
+		return args;
 	}
 
 	/**

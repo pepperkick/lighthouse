@@ -18,20 +18,23 @@ export class Provider extends Document {
 	name: string
 
 	@Prop()
-	inUse: { id: string, port: number}[]
+	inUse: { id: string, port?: number}[]
 
 	@Prop({ required: true, type: Object })
 	selectors: object
 
 	@Prop({ type: Object })
 	metadata: {
+		image?: string
 		hostname?: string
 		ports?: { min: number, max: number }
 		ip?: string
 		namespace?: string
 		kubeconfig?: string
+		gcloudconfig?: string
+		region?: string
 		zone?: string
-		image?: string
+		vmImage?: string
 		machineType?: string
 	}
 }
