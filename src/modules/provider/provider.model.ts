@@ -14,6 +14,9 @@ export class Provider extends Document {
 	@Prop({ required: true, type: Number })
 	limit: number
 
+	@Prop({ required: true, type: Number })
+	priority: number
+
 	@Prop({ required: true, type: String })
 	name: string
 
@@ -37,6 +40,10 @@ export class Provider extends Document {
 		vmImage?: string
 		machineType?: string
 		hidden?: boolean
+		autoClose?: {
+			time: number
+			min: number
+		}
 	}
 }
 

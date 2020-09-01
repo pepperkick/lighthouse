@@ -18,7 +18,9 @@ export class ProviderService {
 	 * @param selectors Selectors to use while searching for provider
 	 */
 	async find(selectors: object) {
-		return this.Provider.findOne({ $and: [ { selectors }, { $where: "this.limit > this.inUse.length" } ] });
+		return this.Provider
+			.findOne({ $and: [ { selectors }, { $where: "this.limit > this.inUse.length" } ] })
+			.sort({ priority: -1 });
 	}
 
 	async status(queryHidden = false) {
@@ -75,5 +77,9 @@ export class ProviderService {
 			case ProviderType.GCloud:
 				return new GCloudHandler(provider).destroyInstance(id);
 		}
+	}
+
+	async get(id: string) {
+		return this.Provider.findById(id);
 	}
 }

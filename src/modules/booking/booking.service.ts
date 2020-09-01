@@ -240,6 +240,10 @@ export class BookingService {
 				for (let booking of bookings) {
 					const id = booking._id;
 
+					const provider = await this.providerService.get(booking.provider);
+					const min = provider.metadata.autoClose.min || 2;
+					const time = provider.metadata.autoClose.time || 900;
+
 					try {
 						const data = await query({
 							host: booking.ip, 
@@ -248,8 +252,10 @@ export class BookingService {
 						});
 		
 						this.logger.debug(`Pinged ${booking._id} (${booking.ip}:${booking.port}) server, ${data.players.length} playing`);
-						if (data.players.length < 2) {
-							this.markServerForUnbook(booking);
+						
+
+						if (data.players.length < min) {
+							this.markServerForUnbook(booking, time);
 						} else {
 							this.unmarkServerForUnbook(booking);
 						}
@@ -264,12 +270,12 @@ export class BookingService {
 		}, 30 * 1000);
 	}
 
-	private markServerForUnbook(booking: Booking) {
+	private markServerForUnbook(booking: Booking, time = 900) {
 		const id = booking.id;
 
 		if (!this.timers[id]) {
-			this.timers[id] = setTimeout(() => this.unbook(booking), config.waitPeriod * 1000);
-			this.logger.log(`Marked server ${id} for closure in next ${config.waitPeriod} seconds`);
+			this.timers[id] = setTimeout(() => this.unbook(booking), time * 1000);
+			this.logger.log(`Marked server ${id} for closure in next ${time} seconds`);
 		}
 	}
 
