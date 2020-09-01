@@ -9,6 +9,9 @@ export class Booking extends Document {
 	@Prop({ type: String })
 	id: string
 
+	@Prop({ type: Date })
+	createdAt: Date
+
 	@Prop()
 	password: string
 

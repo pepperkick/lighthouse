@@ -28,11 +28,18 @@ export class GCloudHandler extends Handler {
 	}	
 
 	async createInstance(options: InstanceOptions) {
-		const address = this.region.address(`tf2-${options.id}`);
-		const address_data = await address.create();
-		await address_data[1].promise();
-		const ip = (await address_data[0].getMetadata())[0].address;
+		let ip;
 
+		try {
+			const address = this.region.address(`tf2-${options.id}`);
+			const address_data = await address.create();
+			await address_data[1].promise();
+			ip = (await address_data[0].getMetadata())[0].address;
+		} catch (error) {
+			this.logger.error("Failed to create address", error);
+			throw error;
+		}
+		
 		const data = {
 			id: options.id,
 			token: options.token, 
@@ -46,33 +53,61 @@ export class GCloudHandler extends Handler {
 			selectors: this.provider.selectors
 		}		
 
-		const vm_data =  await this.zone.createVM(`tf2-${options.id}`, {
-			os: this.provider.metadata.vmImage,
-			machineType: this.provider.metadata.machineType,
-			networkInterfaces: [ { accessConfigs: {
-				type: "ONE_TO_ONE_NAT",
-				natIP: ip
-			} } ],
-			metadata: {
-				items: [ { 
-					key: "startup-script",
-					value: 
-						`
-						#! /bin/bash
-						
-						sudo iptables -P INPUT ACCEPT
-						sudo iptables -P OUTPUT ACCEPT
 
-						docker run --network host ${this.provider.metadata.image} ${BookingChart.getArgs(data)}
-						`
-				} ]
+		try {
+			const vm_data =  await this.zone.createVM(`tf2-${options.id}`, {
+				os: this.provider.metadata.vmImage,
+				machineType: this.provider.metadata.machineType,
+				networkInterfaces: [ { accessConfigs: {
+					type: "ONE_TO_ONE_NAT",
+					natIP: ip
+				} } ],
+				metadata: {
+					items: [ { 
+						key: "startup-script",
+						value: 
+							`
+							#! /bin/bash
+
+							while : ; do
+								if sudo iptables -L INPUT | grep -i "policy accept"; then
+									break
+								else
+									sudo iptables -P INPUT ACCEPT
+								fi
+							done
+
+							while : ; do
+								if sudo iptables -L OUTPUT | grep -i "policy accept"; then
+									break
+								else
+									sudo iptables -P OUTPUT ACCEPT
+								fi
+							done
+	
+							docker run --network host ${this.provider.metadata.image} ${BookingChart.getArgs(data)}
+							`
+					} ]
+				}
+			});
+	
+			await vm_data[1].promise();
+	
+			this.provider.inUse = [ ...this.provider.inUse, { id: options.id } ];
+			await this.provider.save();			
+		} catch (error) {
+			this.logger.error("Failed to create VM", error);
+
+			try {
+				const address = this.region.address(`tf2-${options.id}`);
+				const address_data = await address.delete();
+				await address_data[0].promise();
+			} catch (error) {
+				this.logger.error("Failed to delete address for failed VM", error);				
 			}
-		});
 
-		await vm_data[1].promise();
-
-		this.provider.inUse = [ ...this.provider.inUse, { id: options.id } ];
-		await this.provider.save();
+			throw error;
+		}
 
 		data.ip = ip;
 

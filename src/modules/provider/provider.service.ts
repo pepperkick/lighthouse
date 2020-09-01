@@ -21,11 +21,13 @@ export class ProviderService {
 		return this.Provider.findOne({ $and: [ { selectors }, { $where: "this.limit > this.inUse.length" } ] });
 	}
 
-	async status() {
-		const providers = await this.Provider.find();
+	async status(queryHidden = false) {
+		const providers = await this.Provider.find().sort({ name: 1 });
 		const data = [];
 
 		for (let provider of providers) {
+			if (!queryHidden && provider.metadata.hidden === true) continue;
+
 			switch (provider.type) {
 				case ProviderType.KubernetesNode:
 					data.push({

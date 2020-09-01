@@ -36,6 +36,7 @@ export class Provider extends Document {
 		zone?: string
 		vmImage?: string
 		machineType?: string
+		hidden?: boolean
 	}
 }
 

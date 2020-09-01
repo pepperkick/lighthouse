@@ -14,6 +14,7 @@ import { v4 as uuid } from 'uuid';
 import { GSTokenService } from '../gstoken/gstoken.service';
 import { ElasticService } from './elastic.service';
 import { ProviderService } from '../provider/provider.service';
+import { Provider } from '../provider/provider.model';
 
 enum StatusEvent {
 	BOOK = 'BOOK',
@@ -44,9 +45,9 @@ export class BookingService {
 	/**
 	 * Get status of all tf2 deployment
 	 */
-	async statusAll(): Promise<BookingStatusDTO> {
+	async statusAll(hiddenProviders = false): Promise<BookingStatusDTO> {
 		const bookings: BookingDTO[] = await this.Booking.find();
-		const providers = await this.providerService.status();
+		const providers = await this.providerService.status(hiddenProviders);
 
 		return { providers, bookings }
 	}
@@ -61,21 +62,32 @@ export class BookingService {
 	}
 
 	/**
-	 * Create a new tf2 deployment
+	 * Check if the book request can be handled
 	 * 
 	 * @param data PostBookDTO 
 	 */
-	async book(data: PostBookDTO): Promise<BookingDTO> {
+	async bookRequest(data: PostBookDTO): Promise<void> {
 		await this.checkHasBooking(data.id);
-
-		const token = await (await this.tokenService.reserve()).login_token;
-		const password = crypto.randomBytes(4).toString('hex');
-		const rconPassword = crypto.randomBytes(4).toString('hex');
+		
 		const provider = await this.providerService.find(data.selectors);
 		
 		if (!provider) {
 			throw new HttpException(`Reached limit`, HttpStatus.TOO_MANY_REQUESTS);
 		}
+
+		this.book(provider, data);
+	}
+
+	/**
+	 * Create a new tf2 deployment
+	 * 
+	 * @param provider Provider 
+	 * @param data PostBookDTO 
+	 */
+	async book(provider: Provider, data: PostBookDTO): Promise<BookingDTO> {
+		const token = await (await this.tokenService.reserve()).login_token;
+		const password = crypto.randomBytes(4).toString('hex');
+		const rconPassword = crypto.randomBytes(4).toString('hex');
 
 		try {        
 			await this.notifyViaUrl(data.callbackUrl, StatusEvent.BOOK_START, { metadata: data.metadata });
@@ -100,6 +112,7 @@ export class BookingService {
 			booking.ip = instance.ip;
 			booking.callbackUrl = data.callbackUrl || "";
 			booking.metadata = data.metadata;
+			booking.createdAt = new Date();
 			await booking.save();
 		
 			await this.notifyViaUrl(data.callbackUrl, StatusEvent.BOOK_END, { booking: booking.toJSON(), metadata: data.metadata });
@@ -121,25 +134,38 @@ export class BookingService {
 			throw new InternalServerErrorException("Failed to create booking");
 		}
 	}
+
+	
+	/**
+	 * Check if the unbook request can be handled
+	 * 
+	 * @param id Booking ID
+	 */
+	async unbookRequest(id: string, data: { metadata: any }): Promise<void> {
+		const booking = await this.Booking.findById(id);
+		
+		if (!booking) {
+			throw new NotFoundException(`Could not find any booking with ID ${id}`);
+		}
+
+		this.unbook(booking, data);
+	}
 	
 	/**
 	 * Remove user's tf2 deployment
 	 * 
-	 * @param id Booking ID
+	 * @param booking Booking
 	 */
-	async unbook(id: string): Promise<void> {
-		const booking = await this.Booking.findById(id);
+	async unbook(booking: Booking, data?: { metadata: any }): Promise<void> {
+		const id = booking.id;
 
-		if (!booking) 
-			throw new NotFoundException(`Could not find any booking with ID ${id}`);
-
-		await this.notifyViaUrl(booking.callbackUrl, StatusEvent.UNBOOK_START, { metadata: booking.metadata });
+		await this.notifyViaUrl(booking.callbackUrl, StatusEvent.UNBOOK_START, { metadata: data?.metadata });
 
 		try {
 			await this.providerService.deleteInstance(booking.provider, booking.id);
 			await this.Booking.deleteOne({ _id: id });
 		} catch (error) {
-			await this.notifyViaUrl(booking.callbackUrl, StatusEvent.UNBOOK_FAILED, { metadata: booking.metadata });
+			await this.notifyViaUrl(booking.callbackUrl, StatusEvent.UNBOOK_FAILED, { metadata: data?.metadata });
 			if (error.statusCode === 404) {
 				this.logger.warn(`Found booking entry for "${id}" but could not find deployment, removing entry.`);
 			} else {
@@ -148,10 +174,7 @@ export class BookingService {
 			}
 		} finally {    
 			// Clear unbook timer if any
-			if (this.timers[id]) {
-				clearTimeout(this.timers[id]);
-				delete this.timers[id];
-			}
+			this.unmarkServerForUnbook(booking);
 
 			await this.tokenService.release(booking.token);
 			
@@ -162,7 +185,7 @@ export class BookingService {
 			});
 		}
 
-		await this.notifyViaUrl(booking.callbackUrl, StatusEvent.UNBOOK_END, { metadata: booking.metadata });
+		await this.notifyViaUrl(booking.callbackUrl, StatusEvent.UNBOOK_END, { metadata: data?.metadata });
 
 		this.logger.log(`Server unbooked ${id}`);
 	}
@@ -226,29 +249,38 @@ export class BookingService {
 		
 						this.logger.debug(`Pinged ${booking._id} (${booking.ip}:${booking.port}) server, ${data.players.length} playing`);
 						if (data.players.length < 2) {
-							if (!this.timers[id]) {
-								this.timers[id] = setTimeout(() => this.unbook(id), config.waitPeriod * 1000);
-								this.logger.log(`Marked server ${id} for closure in next ${config.waitPeriod} seconds`);
-							}
+							this.markServerForUnbook(booking);
 						} else {
-							if (this.timers[id]) {
-								clearTimeout(this.timers[id]);
-								this.logger.log(`Unmarked server ${id} for closure`);
-								delete this.timers[id];
-							}
+							this.unmarkServerForUnbook(booking);
 						}
 					} catch (error) {
 						this.logger.error(`Failed to query server ${id} (${booking.ip}:${booking.port}) due to ${error}`);
-						if (!this.timers[id]) {
-							this.timers[id] = setTimeout(() => this.unbook(id), config.waitPeriod * 1000);
-							this.logger.log(`Marked server ${id} for closure in next ${config.waitPeriod} seconds`);
-						}
+						this.markServerForUnbook(booking);
 					}
 				}
 			} catch (error) {
 				this.logger.error(`Failed to monitor servers due to ${error}`);
 			}
 		}, 30 * 1000);
+	}
+
+	private markServerForUnbook(booking: Booking) {
+		const id = booking.id;
+
+		if (!this.timers[id]) {
+			this.timers[id] = setTimeout(() => this.unbook(booking), config.waitPeriod * 1000);
+			this.logger.log(`Marked server ${id} for closure in next ${config.waitPeriod} seconds`);
+		}
+	}
+
+	private unmarkServerForUnbook(booking: Booking) {
+		const id = booking.id;
+
+		if (this.timers[id]) {
+			clearTimeout(this.timers[id]);
+			this.logger.log(`Unmarked server ${id} for closure`);
+			delete this.timers[id];
+		}
 	}
 
 	/**
