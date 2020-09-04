@@ -5,14 +5,18 @@ import { Provider } from "../provider.model";
 import * as config from "../../../../config.json"
 import { writeFileSync } from "fs";
 import { BookingChart, BookingOptions } from "src/modules/booking/booking.chart";
+import { BookingService } from "src/modules/booking/booking.service";
 
 export class GCloudHandler extends Handler {
 	compute: any
 	zone: any
 	region: any
 
-	constructor(provider: Provider) {
-		super(provider);
+	constructor(
+		provider: Provider,
+		bookingService: BookingService
+	) {
+		super(provider, bookingService);
 
 		const config = JSON.parse(provider.metadata.gcloudconfig);
 		const project = config.project_id;
@@ -28,17 +32,25 @@ export class GCloudHandler extends Handler {
 	}	
 
 	async createInstance(options: InstanceOptions) {
+		const address = this.region.address(`tf2-${options.id}`);
 		let ip;
 
 		try {
-			const address = this.region.address(`tf2-${options.id}`);
 			const address_data = await address.create();
 			await address_data[1].promise();
 			ip = (await address_data[0].getMetadata())[0].address;
 		} catch (error) {
-			this.logger.error("Failed to create address", error);
-			throw error;
+			if (error.code === 409 && error.errors.filter(e => e.reason === "alreadyExists").length > 0) {
+				this.logger.warn("Failed to create address as it already exists, reusing it.");
+				const address_data = await address.get();
+				ip = (await address_data[0].getMetadata())[0].address;
+			} else {
+				this.logger.error("Failed to create address", error);	
+				throw error;
+			}
 		}
+
+		this.logger.debug(`Got GCloud IP ${ip} for booking ${options.id}`);
 		
 		const data = {
 			id: options.id,
@@ -92,9 +104,6 @@ export class GCloudHandler extends Handler {
 			});
 	
 			await vm_data[1].promise();
-	
-			this.provider.inUse = [ ...this.provider.inUse, { id: options.id } ];
-			await this.provider.save();			
 		} catch (error) {
 			this.logger.error("Failed to create VM", error);
 
@@ -121,8 +130,5 @@ export class GCloudHandler extends Handler {
 		const vm = this.zone.vm(`tf2-${id}`);
 		const vm_data = await vm.delete();
 		await vm_data[0].promise();
-
-		this.provider.inUse = this.provider.inUse.filter(e => e.id !== id);
-		this.provider.save();
 	}
 }

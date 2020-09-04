@@ -20,9 +20,6 @@ export class Provider extends Document {
 	@Prop({ required: true, type: String })
 	name: string
 
-	@Prop()
-	inUse: { id: string, port?: number}[]
-
 	@Prop({ required: true, type: Object })
 	selectors: object
 

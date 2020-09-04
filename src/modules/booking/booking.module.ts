@@ -17,5 +17,6 @@ import { ProviderModule } from "../provider/provider.module";
 	],
 	controllers: [ BookingController ],
 	providers: [ BookingService, ElasticService ],
+	exports: [ BookingService ]
 })
 export class BookingModule {}

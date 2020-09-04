@@ -1,26 +1,40 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, forwardRef, Inject } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { Provider, ProviderType } from "./provider.model";
 import { InstanceOptions } from "./handler.class";
 import { KubernetesHandler } from "./provider-handlers/kubernentes.class";
 import { GCloudHandler } from "./provider-handlers/gcloud.class";
+import { BookingService } from "../booking/booking.service";
 
 @Injectable()
 export class ProviderService {
 	private readonly logger = new Logger(ProviderService.name);
 
-	constructor(@InjectModel(Provider.name) private Provider: Model<Provider>) {}
+	constructor(
+		@InjectModel(Provider.name) private Provider: Model<Provider>,
+    @Inject(forwardRef(() => BookingService))
+		private bookingService: BookingService
+	) {}
 
 	/**
 	 * Find a free provider based on selectors provided 
 	 * 
 	 * @param selectors Selectors to use while searching for provider
 	 */
-	async find(selectors: object) {
-		return this.Provider
-			.findOne({ $and: [ { selectors }, { $where: "this.limit > this.inUse.length" } ] })
+	async find(selectors: object): Promise<Provider | undefined> {
+		const providers = await this.Provider
+			.find({ $and: [ { selectors } ] })
 			.sort({ priority: -1 });
+
+		for (let provider of providers) {
+			const limit = provider.limit;
+			const inUse = await (await this.bookingService.getInUseBookings(provider)).length;
+
+			if (limit > inUse) return provider;
+		}
+
+		return;
 	}
 
 	async status(queryHidden = false) {
@@ -29,13 +43,14 @@ export class ProviderService {
 
 		for (let provider of providers) {
 			if (!queryHidden && provider.metadata.hidden === true) continue;
+			const inUse = await (await this.bookingService.getInUseBookings(provider)).length;
 
 			switch (provider.type) {
 				case ProviderType.KubernetesNode:
 					data.push({
 						id: provider.id,
 						limit: provider.limit,
-						inUse: provider.inUse.length,
+						inUse,
 						name: provider.name,
 						hostname: provider.metadata.hostname,
 						ip: provider.metadata.ip,
@@ -46,7 +61,7 @@ export class ProviderService {
 					data.push({
 						id: provider.id,
 						limit: provider.limit,
-						inUse: provider.inUse.length,
+						inUse,
 						name: provider.name,
 						...provider.selectors
 					});
@@ -62,9 +77,9 @@ export class ProviderService {
 		
 		switch(provider.type) {
 			case ProviderType.KubernetesNode:
-				return new KubernetesHandler(provider).createInstance(options);
+				return new KubernetesHandler(provider, this.bookingService).createInstance(options);
 			case ProviderType.GCloud:
-				return new GCloudHandler(provider).createInstance(options);
+				return new GCloudHandler(provider, this.bookingService).createInstance(options);
 		}
 	}
 
@@ -73,9 +88,9 @@ export class ProviderService {
 		this.logger.debug(`Deleting instance id ${id} at ${provider.name}`);
 		switch(provider.type) {
 			case ProviderType.KubernetesNode:
-				return new KubernetesHandler(provider).destroyInstance(id);
+				return new KubernetesHandler(provider, this.bookingService).destroyInstance(id);
 			case ProviderType.GCloud:
-				return new GCloudHandler(provider).destroyInstance(id);
+				return new GCloudHandler(provider, this.bookingService).destroyInstance(id);
 		}
 	}
 

@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, ConflictException, NotFoundException, HttpException, HttpService, HttpStatus, Logger, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, NotFoundException, HttpException, HttpService, HttpStatus, Logger, InternalServerErrorException, forwardRef, Inject } from '@nestjs/common';
 import { BookingDTO } from './dto/booking.dto';
 import { BookingStatusDTO } from './dto/booking-status.dto';
 import { PostBookDTO } from './dto/post-book.dto';
@@ -37,6 +37,7 @@ export class BookingService {
 		@InjectModel(Booking.name) private Booking: Model<Booking>, 
 		private elasticService: ElasticService,
 		private tokenService: GSTokenService,
+    @Inject(forwardRef(() => ProviderService))
 		private providerService: ProviderService
 	) {
 		this.monitorServers();
@@ -200,6 +201,16 @@ export class BookingService {
 
 		if (booking)
 			throw new ConflictException(`A server with id ${id} is already running`);
+	}
+
+	/**
+	 * Get number of bookings using the provider
+	 * 
+	 * @param provider Provider
+	 */
+	async getInUseBookings(provider: Provider) {
+		const id = provider.id;
+		return this.Booking.find({ "provider": id });
 	}
 
 	/**

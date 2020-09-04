@@ -4,6 +4,8 @@ import * as yaml from "js-yaml";
 import * as ApiClient from 'kubernetes-client';
 import { BookingChart } from '../../booking/booking.chart';
 import * as config from "../../../../config.json"
+import { BookingService } from "src/modules/booking/booking.service";
+import { forwardRef, Inject } from "@nestjs/common";
 
 const { KubeConfig } = require('kubernetes-client')
 const Request = require('kubernetes-client/backends/request')
@@ -13,8 +15,11 @@ export class KubernetesHandler extends Handler {
 	kube: ApiClient.ApiRoot;
 	namespace: string
 
-	constructor(provider: Provider) {
-		super(provider);
+	constructor(
+		provider: Provider,
+		bookingService: BookingService
+	) {
+		super(provider, bookingService);
 
 		this.namespace = provider.metadata.namespace;
 
@@ -60,9 +65,6 @@ export class KubernetesHandler extends Handler {
 				hostname: this.provider.metadata.hostname
 			}
 			data.selectors = this.provider.selectors;
-
-			this.provider.inUse = [ ...this.provider.inUse, { id: options.id, port } ];
-			await this.provider.save();
 	
 			return data;
 		} catch (error) {
@@ -74,9 +76,6 @@ export class KubernetesHandler extends Handler {
 		try {
 			await this.kube.apis.app.v1
 				.namespaces(this.namespace).deployments(`tf2-${id}`).delete();
-
-			this.provider.inUse = this.provider.inUse.filter(e => e.id !== id);
-			this.provider.save();
 		} catch (error) {
 			this.logger.error("Failed to delete kubernetes instance", error);
 		}
