@@ -1,5 +1,5 @@
 import { Provider } from "./provider.model";
-import { Logger, forwardRef, Inject } from "@nestjs/common";
+import { Logger } from "@nestjs/common";
 import { BookingService } from "../booking/booking.service";
 
 export interface InstanceOptions {
@@ -7,6 +7,9 @@ export interface InstanceOptions {
 	token: string
 	password?: string
 	rconPassword?: string
+	servername?: string
+	image?: string
+	port?: number
 }
 
 export class Handler {

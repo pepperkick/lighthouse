@@ -39,18 +39,18 @@ export class KubernetesHandler extends Handler {
 
 	async createInstance(options: InstanceOptions) {
 		try {
-			const port = await this.getFreePort();
+			const port = options.port || await this.getFreePort();
 			const data = {
 				id: options.id,
 				token: options.token, 
-				image: this.provider.metadata.image,
+				image: options.image || this.provider.metadata.image,
 				hostname: this.provider.metadata.hostname,
-				servername: config.instance.hostname,
+				servername: options.servername || config.instance.hostname,
 				ip: this.provider.metadata.ip, port, 
 				password: options.password, 
 				rconPassword: options.rconPassword, 
 				tv: { port: port + 1, name: config.instance.tv_name },
-				provider: { id: "", hostname: "" },
+				provider: { id: "", hostname: "", autoClose: { time: 905, min: 2 } },
 				selectors: {}
 			}
 		
@@ -62,7 +62,8 @@ export class KubernetesHandler extends Handler {
 				
 			data.provider = {
 				id: this.provider.id,
-				hostname: this.provider.metadata.hostname
+				hostname: this.provider.metadata.hostname,
+				autoClose: this.provider.metadata.autoClose
 			}
 			data.selectors = this.provider.selectors;
 	

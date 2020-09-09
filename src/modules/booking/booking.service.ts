@@ -87,8 +87,8 @@ export class BookingService {
 	 */
 	async book(provider: Provider, data: PostBookDTO): Promise<BookingDTO> {
 		const token = await (await this.tokenService.reserve()).login_token;
-		const password = crypto.randomBytes(4).toString('hex');
-		const rconPassword = crypto.randomBytes(4).toString('hex');
+		const password = data.password || crypto.randomBytes(4).toString('hex');
+		const rconPassword = data.rconPassword || crypto.randomBytes(4).toString('hex');
 
 		try {        
 			await this.notifyViaUrl(data.callbackUrl, StatusEvent.BOOK_START, { metadata: data.metadata });
@@ -97,7 +97,9 @@ export class BookingService {
 				id: data.id || uuid(),
 				token,
 				password,
-				rconPassword
+				rconPassword,
+				port: data.port || null,
+				image: data.image || null
 			})
 
 			const booking = new this.Booking();
@@ -113,6 +115,7 @@ export class BookingService {
 			booking.ip = instance.ip;
 			booking.callbackUrl = data.callbackUrl || "";
 			booking.metadata = data.metadata;
+			booking.autoClose = data.autoClose || instance.provider.autoClose
 			booking.createdAt = new Date();
 			await booking.save();
 		

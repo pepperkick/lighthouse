@@ -41,6 +41,12 @@ export class Booking extends Document {
 
 	@Prop()
 	selectors: {}
+
+	@Prop()
+	autoClose: {
+		time: number
+		min: number
+	}
 }
 
 export const BookingSchema = SchemaFactory.createForClass(Booking); 
