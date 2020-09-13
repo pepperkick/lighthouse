@@ -57,10 +57,10 @@ export class GCloudHandler extends Handler {
 			token: options.token, 
 			image: options.image || this.provider.metadata.image,
 			servername: options.servername || config.instance.hostname,
-			ip: null, port: options.port || 27015, 
+			ip: null, port: 27015, 
 			password: options.password, 
 			rconPassword: options.rconPassword, 
-			tv: { port: (options.port + 1) || 27020, name: config.instance.tv_name },
+			tv: { port: 27020, name: config.instance.tv_name },
 			provider: { 
 				id: this.provider.id,
 				autoClose: this.provider.metadata.autoClose || { time: 905, min: 1 }

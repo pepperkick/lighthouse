@@ -30,7 +30,7 @@ export class Handler {
 	 * Get free server game port
 	 */
 	async getFreePort() {    
-		const inUse = await this.bookingService.getInUseBookings(this.provider);
+		const inUse = await this.bookingService.getInUseBookingsForProvider(this.provider);
 		const inUsePorts: number[] = inUse.map(e => e.port);
 		const port = this.getRandomPort();
 	

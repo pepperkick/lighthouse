@@ -36,6 +36,7 @@ export class BookingService {
 	constructor(
 		@InjectModel(Booking.name) private Booking: Model<Booking>, 
 		private elasticService: ElasticService,
+    @Inject(forwardRef(() => GSTokenService))
 		private tokenService: GSTokenService,
     @Inject(forwardRef(() => ProviderService))
 		private providerService: ProviderService
@@ -207,13 +208,20 @@ export class BookingService {
 	}
 
 	/**
-	 * Get number of bookings using the provider
+	 * Get bookings using the provider
 	 * 
 	 * @param provider Provider
 	 */
-	async getInUseBookings(provider: Provider) {
+	async getInUseBookingsForProvider(provider: Provider) {
 		const id = provider.id;
 		return this.Booking.find({ "provider": id });
+	}
+
+	/**
+	 * Get bookings
+	 */
+	async getInUseBookings() {
+		return this.Booking.find();
 	}
 
 	/**

@@ -1,23 +1,30 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, forwardRef, Inject } from "@nestjs/common";
 import axios from "axios";
 import * as config from "../../../config.json"
 import { InjectModel } from "@nestjs/mongoose";
 import { GSToken } from "./gstoken.model";
 import { Model } from "mongoose";
+import { BookingService } from "../booking/booking.service";
 
-const STEAM_API = "https://api.steampowered.com/IGameServersService"
+const STEAM_API = "https://api.steampowered.com/IGameServersService";
 
 @Injectable()
 export class GSTokenService {
 	private readonly logger = new Logger(GSTokenService.name);
 
-	constructor(@InjectModel(GSToken.name) private GSToken: Model<GSToken>) {}
+	constructor(
+		@InjectModel(GSToken.name) private GSToken: Model<GSToken>,
+    @Inject(forwardRef(() => BookingService))
+		private bookingService: BookingService
+	) {}
 
 	/**
 	 * Reserve a token for use
 	 */
 	async reserve(): Promise<GSToken> {
-		let token = await this.GSToken.findOne({ inUse: false });
+		const bookings = await this.bookingService.getInUseBookings();
+		const tokens = bookings.map(e => e.token);
+		let token = await this.GSToken.findOne({ login_token: { $nin: tokens } });
 
 		if (!token) {
 			this.logger.warn(`No free tokens found, attempting to create new one`);
@@ -30,6 +37,9 @@ export class GSTokenService {
 			}
 		}
 
+		if (token.inUse)
+			return this.reserve();
+
 		const res = await this.getStatus(token);
 		
 		if (res.is_banned) {
@@ -41,7 +51,7 @@ export class GSTokenService {
 		token.inUse = true;
 		await token.save();
 
-		this.logger.log(`Marked token ${token.login_token} as in use`);
+		this.logger.log(`Token ${token.login_token} is in use`);
 
 		return token;
 	}
@@ -62,7 +72,7 @@ export class GSTokenService {
 		token.inUse = false;
 		await token.save();
 
-		this.logger.log(`Marked token ${token.login_token} as not in use`);
+		this.logger.log(`Token ${token.login_token} is not in use`);
 
 		return token;
 	}

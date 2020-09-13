@@ -29,7 +29,7 @@ export class ProviderService {
 
 		for (let provider of providers) {
 			const limit = provider.limit;
-			const inUse = await (await this.bookingService.getInUseBookings(provider)).length;
+			const inUse = await (await this.bookingService.getInUseBookingsForProvider(provider)).length;
 
 			if (limit > inUse) return provider;
 		}
@@ -43,7 +43,7 @@ export class ProviderService {
 
 		for (let provider of providers) {
 			if (!queryHidden && provider.metadata.hidden === true) continue;
-			const inUse = await (await this.bookingService.getInUseBookings(provider)).length;
+			const inUse = await (await this.bookingService.getInUseBookingsForProvider(provider)).length;
 
 			switch (provider.type) {
 				case ProviderType.KubernetesNode:
