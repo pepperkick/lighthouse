@@ -18,7 +18,7 @@ export class Booking extends Document {
 	@Prop()
 	rconPassword: string
 
-	@Prop({ required: true })
+	@Prop()
 	port: number
 
 	@Prop()
@@ -27,7 +27,7 @@ export class Booking extends Document {
 	@Prop({ required: true })
 	token: string
 
-	@Prop({ required: true })
+	@Prop()
 	ip: string
 
 	@Prop({ required: true })

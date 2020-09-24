@@ -94,6 +94,16 @@ export class BookingService {
 		try {        
 			await this.notifyViaUrl(data.callbackUrl, StatusEvent.BOOK_START, { metadata: data.metadata });
 
+			const booking = new this.Booking();
+			booking._id = data.id;
+			booking.id = data.id;
+			booking.token = token;
+			booking.callbackUrl = data.callbackUrl || "";
+			booking.metadata = data.metadata;
+			booking.provider = provider.id;
+			booking.createdAt = new Date();
+			await booking.save();
+
 			const instance = await this.providerService.createInstance(provider, {
 				id: data.id || uuid(),
 				token,
@@ -103,21 +113,13 @@ export class BookingService {
 				image: data.image || null
 			})
 
-			const booking = new this.Booking();
-			booking._id = instance.id;
-			booking.id = instance.id;
-			booking.provider = instance.provider.id;
 			booking.selectors = instance.selectors;
 			booking.password = instance.password;
 			booking.rconPassword = instance.rconPassword;
 			booking.port = instance.port;
 			booking.tvPort = instance.port + 1;
-			booking.token = instance.token;
 			booking.ip = instance.ip;
-			booking.callbackUrl = data.callbackUrl || "";
-			booking.metadata = data.metadata;
 			booking.autoClose = data.autoClose || instance.provider.autoClose
-			booking.createdAt = new Date();
 			await booking.save();
 		
 			await this.notifyViaUrl(data.callbackUrl, StatusEvent.BOOK_END, { booking: booking.toJSON(), metadata: data.metadata });
