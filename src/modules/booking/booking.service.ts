@@ -117,7 +117,8 @@ export class BookingService {
 			booking.password = instance.password;
 			booking.rconPassword = instance.rconPassword;
 			booking.port = instance.port;
-			booking.tvPort = instance.port + 1;
+			if (instance.tv)
+				booking.tvPort = instance.tv.port;
 			booking.ip = instance.ip;
 			booking.autoClose = data.autoClose || instance.provider.autoClose
 			await booking.save();
