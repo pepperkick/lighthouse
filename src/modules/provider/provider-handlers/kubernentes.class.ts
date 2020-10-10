@@ -5,7 +5,6 @@ import * as ApiClient from 'kubernetes-client';
 import { BookingChart } from '../../booking/booking.chart';
 import * as config from "../../../../config.json"
 import { BookingService } from "src/modules/booking/booking.service";
-import { forwardRef, Inject } from "@nestjs/common";
 
 const { KubeConfig } = require('kubernetes-client')
 const Request = require('kubernetes-client/backends/request')

@@ -84,6 +84,8 @@ export class GCloudHandler extends Handler {
 							`
 							#! /bin/bash
 
+							export BOOKING_ID=${data.id}
+
 							while : ; do
 								if sudo iptables -L INPUT | grep -i "policy accept"; then
 									break
@@ -127,11 +129,20 @@ export class GCloudHandler extends Handler {
 	}
 
 	async destroyInstance(id: string) {
-		const address = this.region.address(`tf2-${id}`);
-		const address_data = await address.delete();
-		await address_data[0].promise();
-		const vm = this.zone.vm(`tf2-${id}`);
-		const vm_data = await vm.delete();
-		await vm_data[0].promise();
+		try {
+			const address = this.region.address(`tf2-${id}`);
+			const address_data = await address.delete();
+			await address_data[0].promise();
+		} catch (error) {
+			this.logger.error("Failed to remove address", error);
+		}
+
+		try {
+			const vm = this.zone.vm(`tf2-${id}`);
+			const vm_data = await vm.delete();
+			await vm_data[0].promise();
+		} catch (error) {
+			this.logger.error("Failed to remove vm", error);
+		}
 	}
 }
