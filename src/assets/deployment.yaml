@@ -25,4 +25,7 @@ spec:
         image: '{{ image }}'
         command: [ "/bin/bash" ]
         args: [ "-c", "{{ args }}" ]
-        imagePullPolicy: IfNotPresent     
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: BOOKING_ID
+          value: '{{ id }}'

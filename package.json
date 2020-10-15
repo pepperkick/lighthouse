@@ -37,6 +37,7 @@
     "cdk8s": "^0.27.0",
     "constructs": "^3.0.4",
     "cross-env": "^7.0.2",
+    "delay": "^4.4.0",
     "dotenv": "^8.2.0",
     "gamedig": "^2.0.21",
     "kubernetes-client": "^9.0.0",

@@ -30,6 +30,9 @@ export class Booking extends Document {
 	@Prop()
 	ip: string
 
+	@Prop()
+	image: string
+
 	@Prop({ required: true })
 	provider: string
 

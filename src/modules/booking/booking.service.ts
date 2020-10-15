@@ -116,6 +116,7 @@ export class BookingService {
 			booking.selectors = instance.selectors;
 			booking.password = instance.password;
 			booking.rconPassword = instance.rconPassword;
+			booking.image = instance.image;
 			booking.port = instance.port;
 			if (instance.tv)
 				booking.tvPort = instance.tv.port;
