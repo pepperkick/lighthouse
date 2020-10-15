@@ -1,6 +1,6 @@
 import * as fs from "fs";
-
 import * as config from "../../../config.json"
+import { renderString } from "src/string.util";
 
 const APP_LABEL = config.label;
 
@@ -81,8 +81,9 @@ export class BookingChart {
 	static render(options: BookingOptions) {
 		const args = this.getArgs(options);
 		const app = "tf2"
-		return this.renderString(fs.readFileSync(__dirname + '/../../../assets/deployment.yaml').toString(), {
+		return renderString(fs.readFileSync(__dirname + '/../../../assets/deployment.yaml').toString(), {
 			label: APP_LABEL,
+			app,
 			id: options.id,
 			image: options.image,
 			hostname: options.hostname,
@@ -110,28 +111,5 @@ export class BookingChart {
 		}
 
 		return args;
-	}
-
-	/**
-	 * Render a string by filling templates with values
-	 * 
-	 * Example: 
-	 *  params
-	 *   str: tf2-{{ name }}
-	 *   data: { "name": "test" }
-	 *  return
-	 *   tf2-test
-	 * 
-	 * @param str String to do rendering in
-	 * @param data Data to use while rendering
-	 */
-	static renderString(str: string, data = {}) {
-		for (let key in data) {
-			if (data.hasOwnProperty(key)) {
-				str = str.replace(new RegExp(`{{ ${key} }}`, "g"), data[key]);
-			}
-		}
-
-		return str;
 	}
 }

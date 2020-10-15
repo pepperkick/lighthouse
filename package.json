@@ -42,6 +42,7 @@
     "gamedig": "^2.0.21",
     "kubernetes-client": "^9.0.0",
     "mongoose": "^5.10.0",
+    "node-ansible": "^0.5.5",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
     "rxjs": "^6.5.4",

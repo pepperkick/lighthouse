@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: 'tf2-{{ id }}'
+  name: '{{ app }}-{{ id }}'
   labels:
-    app: tf2
+    app: '{{ app }}'
     {{ label }}/id: "{{ id }}"
 spec:
   selector:
     matchLabels:
-      app: tf2
-      instance: 'tf2-{{ id }}'
+      app: '{{ app }}'
+      instance: '{{ app }}-{{ id }}'
   template:
     metadata:
       labels:
-        app: tf2
-        instance: 'tf2-{{ id }}'
+        app: '{{ app }}'
+        instance: '{{ app }}-{{ id }}'
     spec:
       terminationGracePeriodSeconds: 1
       hostNetwork: true

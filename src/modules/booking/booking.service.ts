@@ -320,7 +320,7 @@ export class BookingService {
 		return {
 			id: booking.id,
 			ip: booking.ip,
-			port: booking.port.toString(),
+			port: booking.port?.toString() || "0",
 			token: booking.token,
 			...booking.selectors
 		}
