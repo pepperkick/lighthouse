@@ -9,8 +9,7 @@ import { renderString } from "src/string.util";
 import * as Ansible from "node-ansible";
 
 const STARTUP_SCRIPT = 
-`
-            #! /bin/bash
+`           #! /bin/bash
             
             export BOOKING_ID={{ id }}
             
@@ -30,8 +29,7 @@ const STARTUP_SCRIPT =
               fi
             done
             
-            docker run --network host {{ image }} {{ args }}
-`
+            docker run --network host {{ image }} {{ args }}`
 const CREATE_PLAYBOOK =
 `
 - name: Create Booking in GCloud
@@ -40,17 +38,6 @@ const CREATE_PLAYBOOK =
   vars:
     gcp_cred_kind: serviceaccount
   tasks:
-  - name: Create a disk
-    gcp_compute_disk:
-      name: '{{ app }}-{{ id }}'
-      size_gb: 20
-      source_image: '{{ image }}'
-      zone: "{{ zone }}"
-      project: "{{ project }}"
-      auth_kind: "{{ gcp_cred_kind }}"
-      service_account_file: "{{ gcp_cred_file }}"
-      state: present
-    register: disk
   - name: Create a Address
     gcp_compute_address:
       name: '{{ app }}-{{ id }}'
@@ -73,11 +60,10 @@ const CREATE_PLAYBOOK =
       disks:
       - auto_delete: true
         boot: true
-        source: "{{ disk }}"
+        initialize_params: 
+          source_image: "{{ image }}"
       metadata:
-        items:
-        - key: "startup-script"
-          value: >-
+        startup-script: >-
 {{ startup_script }}
       zone: "{{ zone }}"
       project: "{{ project }}"
@@ -95,14 +81,6 @@ const DESTROY_PLAYBOOK =
   - name: Delete the instance
     gcp_compute_instance:
       name: "{{ app }}-{{ id }}"
-      zone: "{{ zone }}"
-      project: "{{ project }}"
-      auth_kind: "{{ gcp_cred_kind }}"
-      service_account_file: "{{ gcp_cred_file }}"
-      state: absent
-  - name: Delete the disk
-    gcp_compute_disk:
-      name: '{{ app }}-{{ id }}'
       zone: "{{ zone }}"
       project: "{{ project }}"
       auth_kind: "{{ gcp_cred_kind }}"
@@ -162,7 +140,7 @@ export class GCloudHandler extends Handler {
 		const args = BookingChart.getArgs(data)
 		const script = renderString(STARTUP_SCRIPT, {
 			id: options.id,
-			image: options.image,
+			image: options.image || this.provider.metadata.image,
 			args
 		})
 		const playbook = renderString(CREATE_PLAYBOOK, {
