@@ -16,8 +16,13 @@ export class BookingController {
 	@Get("/:id")
 	async bookStatus(@Param("id") id: string): Promise<BookingDTO> {
 		if (!id || id == "") throw new BadRequestException("Invalid Booking ID");
-
 		return await this.service.statusById(id);
+	}
+
+	@Get("/booker/:id")
+	async bookingsByBooker(@Param("id") id: string): Promise<BookingDTO[]> {
+		if (!id || id == "") throw new BadRequestException("Invalid Booking ID");
+		return await this.service.bookingsByBooker(id);
 	}
 
 	@Post()

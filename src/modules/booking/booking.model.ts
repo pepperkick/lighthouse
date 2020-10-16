@@ -27,6 +27,9 @@ export class Booking extends Document {
 	@Prop({ required: true })
 	token: string
 
+	@Prop({ required: true })
+	bookedBy: string
+
 	@Prop()
 	ip: string
 
@@ -44,6 +47,9 @@ export class Booking extends Document {
 
 	@Prop()
 	selectors: {}
+
+	@Prop({ type: Boolean })
+	markForUnbook: boolean
 
 	@Prop()
 	autoClose: {

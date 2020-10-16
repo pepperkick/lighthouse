@@ -64,6 +64,15 @@ export class BookingService {
 	}
 
 	/**
+	 * Get all bookings booked by certain id
+	 * 
+	 * @param id Booker id
+	 */
+	async bookingsByBooker(id: string): Promise<BookingDTO[]> {
+		return await this.Booking.find({ bookedBy: id })
+	}
+
+	/**
 	 * Check if the book request can be handled
 	 * 
 	 * @param data PostBookDTO 
@@ -97,10 +106,12 @@ export class BookingService {
 			const booking = new this.Booking();
 			booking._id = data.id;
 			booking.id = data.id;
+			booking.bookedBy = data.bookedBy;
 			booking.token = token;
 			booking.callbackUrl = data.callbackUrl || "";
 			booking.metadata = data.metadata;
 			booking.provider = provider.id;
+			booking.markForUnbook = false;
 			booking.createdAt = new Date();
 			await booking.save();
 
@@ -265,7 +276,8 @@ export class BookingService {
 		
 				for (let booking of bookings) {
 					const id = booking._id;
-					const { min, time } = booking.autoClose;
+					const min = booking.autoClose?.min || 2;
+					const time = booking.autoClose?.time || 905;
 
 					try {
 						const data = await query({
@@ -292,8 +304,11 @@ export class BookingService {
 		}, 30 * 1000);
 	}
 
-	private markServerForUnbook(booking: Booking, time = 905) {
+	private async markServerForUnbook(booking: Booking, time = 905) {
 		const id = booking.id;
+
+		booking.markForUnbook = true;
+		await booking.save();
 
 		if (!this.timers[id]) {
 			this.timers[id] = setTimeout(() => this.unbook(booking), time * 1000);
@@ -301,8 +316,13 @@ export class BookingService {
 		}
 	}
 
-	private unmarkServerForUnbook(booking: Booking) {
+	private async unmarkServerForUnbook(booking: Booking) {
 		const id = booking.id;
+
+		if (!booking.$isDeleted) {
+			booking.markForUnbook = false;
+			await booking.save();
+		}
 
 		if (this.timers[id]) {
 			clearTimeout(this.timers[id]);
@@ -322,6 +342,7 @@ export class BookingService {
 			ip: booking.ip,
 			port: booking.port?.toString() || "0",
 			token: booking.token,
+			bookedBy: booking.bookedBy,
 			...booking.selectors
 		}
 	}

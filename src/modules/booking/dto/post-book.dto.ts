@@ -1,5 +1,6 @@
 export interface PostBookDTO {
 	id: string
+	bookedBy: string
 	callbackUrl?: string
 	selectors: {}
 	metadata?: {}

@@ -5,6 +5,7 @@ export interface BookingDTO {
 	tvPort: number
 	password: string
 	rconPassword: string
+	bookedBy: string
 	token?: string
 	region?: string
 	connectString?: string
