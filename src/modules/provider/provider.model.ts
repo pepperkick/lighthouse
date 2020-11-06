@@ -3,7 +3,8 @@ import { Document } from 'mongoose';
 
 export enum ProviderType {
 	KubernetesNode = "KUBERNETES_NODE",
-	GCloud = "GCLOUD"
+	GCloud = "GCLOUD",
+	Vultr = "VULTR"
 }
 
 @Schema()
@@ -25,22 +26,32 @@ export class Provider extends Document {
 
 	@Prop({ type: Object })
 	metadata: {
+		// Common
 		image?: string
-		hostname?: string
-		ports?: { min: number, max: number }
-		ip?: string
-		namespace?: string
-		kubeconfig?: string
-		gcloudconfig?: string
-		region?: string
-		zone?: string
-		vmImage?: string
-		machineType?: string
 		hidden?: boolean
 		autoClose?: {
 			time: number
 			min: number
 		}
+
+		// Kubernetes
+		kubeconfig?: string
+		ports?: { min: number, max: number }
+		ip?: string
+		hostname?: string
+		namespace?: string
+
+		// Google Cloud
+		gcloudconfig?: string
+		region?: string
+		zone?: string
+		vmImage?: string
+		machineType?: string
+		
+		// Vultr
+		vultrApiKey?: string
+		vultrPlanId?: number
+		vultrLocationId?: number
 	}
 }
 

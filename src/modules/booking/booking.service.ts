@@ -78,6 +78,7 @@ export class BookingService {
 	 * @param data PostBookDTO 
 	 */
 	async bookRequest(data: PostBookDTO): Promise<void> {
+		this.logger.debug(`Received booking request for id ${data.id} from ${data.bookedBy}`)
 		await this.checkHasBooking(data.id);
 		
 		const provider = await this.providerService.find(data.selectors);

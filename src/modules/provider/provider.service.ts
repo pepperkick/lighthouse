@@ -6,6 +6,7 @@ import { InstanceOptions } from "./handler.class";
 import { KubernetesHandler } from "./provider-handlers/kubernentes.class";
 import { GCloudHandler } from "./provider-handlers/gcloud.class";
 import { BookingService } from "../booking/booking.service";
+import { VultrHandler } from "./provider-handlers/vultr.class";
 
 @Injectable()
 export class ProviderService {
@@ -80,6 +81,8 @@ export class ProviderService {
 				return new KubernetesHandler(provider, this.bookingService).createInstance(options);
 			case ProviderType.GCloud:
 				return new GCloudHandler(provider, this.bookingService).createInstance(options);
+			case ProviderType.Vultr:
+				return new VultrHandler(provider, this.bookingService).createInstance(options);
 		}
 	}
 
@@ -91,6 +94,8 @@ export class ProviderService {
 				return new KubernetesHandler(provider, this.bookingService).destroyInstance(id);
 			case ProviderType.GCloud:
 				return new GCloudHandler(provider, this.bookingService).destroyInstance(id);
+			case ProviderType.Vultr:
+				return new VultrHandler(provider, this.bookingService).destroyInstance(id);
 		}
 	}
 
