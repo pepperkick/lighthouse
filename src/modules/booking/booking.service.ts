@@ -337,13 +337,18 @@ export class BookingService {
 	 * 
 	 * @param booking Booking
 	 */
-	extractDetails(booking: Booking) {    
+	async extractDetails(booking: Booking) {    
+		const provider = await this.providerService.get(booking.provider);
 		return {
 			id: booking.id,
 			ip: booking.ip,
 			port: booking.port?.toString() || "0",
 			token: booking.token,
 			bookedBy: booking.bookedBy,
+			provider: {
+				id: provider.id,
+				type: provider.type
+			},
 			...booking.selectors
 		}
 	}
