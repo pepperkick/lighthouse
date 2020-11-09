@@ -21,6 +21,10 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@azure/arm-compute": "^15.0.0",
+    "@azure/arm-resources": "^4.0.0",
+    "@azure/identity": "^1.1.0",
+    "@azure/ms-rest-nodeauth": "^3.0.0",
     "@elastic/elasticsearch": "^7.9.0",
     "@google-cloud/compute": "^2.1.0",
     "@kubernetes/client-node": "^0.12.0",
@@ -33,6 +37,7 @@
     "@types/elasticsearch": "^5.0.36",
     "@types/gamedig": "^1.0.1",
     "@vultr/vultr-node": "^1.0.1",
+    "await-exec": "^0.1.2",
     "await-sleep": "0.0.1",
     "axios": "^0.19.2",
     "cdk8s": "^0.27.0",

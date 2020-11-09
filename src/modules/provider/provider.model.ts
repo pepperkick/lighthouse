@@ -1,9 +1,11 @@
+import { VirtualMachineSizeTypes } from '@azure/arm-compute/esm/models';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
 export enum ProviderType {
 	KubernetesNode = "KUBERNETES_NODE",
 	GCloud = "GCLOUD",
+	Azure = "AZURE",
 	Vultr = "VULTR"
 }
 
@@ -48,6 +50,17 @@ export class Provider extends Document {
 		vmImage?: string
 		machineType?: string
 		
+		// Azure
+		azureTenantId?: string
+		azureUsername?: string
+		azurePassword?: string
+		azureClientId?: string
+		azureSubscriptionId?: string
+		azureLocation?: string
+		azureImage?: string
+		azureRootPassword?: string
+		azureMachineType?: VirtualMachineSizeTypes
+
 		// Vultr
 		vultrApiKey?: string
 		vultrPlanId?: number
