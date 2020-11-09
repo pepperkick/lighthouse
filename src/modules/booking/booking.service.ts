@@ -143,7 +143,7 @@ export class BookingService {
 			this.elasticService.sendData({
 				timestamp: new Date(),
 				event: StatusEvent.BOOK,
-				...this.extractDetails(booking)
+				...await this.extractDetails(booking)
 			});
 	
 			return booking;
@@ -155,7 +155,6 @@ export class BookingService {
 			throw new InternalServerErrorException("Failed to create booking");
 		}
 	}
-
 	
 	/**
 	 * Check if the unbook request can be handled
@@ -202,7 +201,7 @@ export class BookingService {
 			this.elasticService.sendData({
 				timestamp: new Date(),
 				event: StatusEvent.UNBOOK,
-				...this.extractDetails(booking)
+				...await this.extractDetails(booking)
 			});
 		}
 
@@ -345,10 +344,8 @@ export class BookingService {
 			port: booking.port?.toString() || "0",
 			token: booking.token,
 			bookedBy: booking.bookedBy,
-			provider: {
-				id: provider.id,
-				type: provider.type
-			},
+			provider_id: provider.id,
+			provider_type: provider.type,
 			...booking.selectors
 		}
 	}
