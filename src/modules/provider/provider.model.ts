@@ -6,7 +6,8 @@ export enum ProviderType {
 	KubernetesNode = "KUBERNETES_NODE",
 	GCloud = "GCLOUD",
 	Azure = "AZURE",
-	Vultr = "VULTR"
+	DigitalOcean = "DIGITAL_OCEAN",
+	Vultr = "VULTR",
 }
 
 @Schema()
@@ -60,6 +61,13 @@ export class Provider extends Document {
 		azureImage?: string
 		azureRootPassword?: string
 		azureMachineType?: VirtualMachineSizeTypes
+
+		// Digital Ocean
+		digitalOceanToken?: string
+		digitalOceanRegion?: string
+		digitalOceanMachineType?: string
+		digitalOceanMachineImage?: string
+		digitalOceanSSHKeyId?: number
 
 		// Vultr
 		vultrApiKey?: string

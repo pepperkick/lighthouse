@@ -8,6 +8,7 @@ import { GCloudHandler } from "./provider-handlers/gcloud.class";
 import { BookingService } from "../booking/booking.service";
 import { VultrHandler } from "./provider-handlers/vultr.class";
 import { AzureHandler } from "./provider-handlers/azure.class";
+import { DigitalOceanHandler } from "./provider-handlers/digitalocean.class";
 
 @Injectable()
 export class ProviderService {
@@ -60,6 +61,9 @@ export class ProviderService {
 					});
 					break;
 				case ProviderType.GCloud:
+				case ProviderType.Azure:
+				case ProviderType.DigitalOcean:
+				case ProviderType.Vultr:
 					data.push({
 						id: provider.id,
 						limit: provider.limit,
@@ -84,6 +88,8 @@ export class ProviderService {
 				return new GCloudHandler(provider, this.bookingService).createInstance(options);
 			case ProviderType.Azure:
 				return new AzureHandler(provider, this.bookingService).createInstance(options);
+			case ProviderType.DigitalOcean:
+				return new DigitalOceanHandler(provider, this.bookingService).createInstance(options);
 			case ProviderType.Vultr:
 				return new VultrHandler(provider, this.bookingService).createInstance(options);
 		}
@@ -99,6 +105,8 @@ export class ProviderService {
 				return new GCloudHandler(provider, this.bookingService).destroyInstance(id);
 			case ProviderType.Azure:
 				return new AzureHandler(provider, this.bookingService).destroyInstance(id);
+			case ProviderType.DigitalOcean:
+				return new DigitalOceanHandler(provider, this.bookingService).destroyInstance(id);
 			case ProviderType.Vultr:
 				return new VultrHandler(provider, this.bookingService).destroyInstance(id);
 		}
