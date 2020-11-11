@@ -45,6 +45,7 @@ export class AzureHandler extends Handler {
 			const metadata = this.provider.metadata;	
 			const group = `lighthouse-${data.id}`;
 			await exec(`az login -u "${metadata.azureUsername}" -p "${metadata.azurePassword}"`);
+			await exec(`az account set --subscription "${metadata.azureSubscriptionId}"`);
 			await exec(`az group create --name ${group} --location ${metadata.azureLocation}`);
 			await exec(`az vm create --resource-group ${group} --name ${group} --image "${metadata.azureImage}" --admin-username lighthouse --admin-password "${metadata.azureRootPassword}"`)
 			await exec(`az vm run-command invoke --resource-group ${group} --name ${group} --command-id RunShellScript --scripts "${script}"`);
@@ -67,6 +68,7 @@ export class AzureHandler extends Handler {
 			const metadata = this.provider.metadata;	
 			const group = `lighthouse-${id}`;
 			await exec(`az login -u "${metadata.azureUsername}" -p "${metadata.azurePassword}"`);
+			await exec(`az account set --subscription "${metadata.azureSubscriptionId}"`);
 			await exec(`az group delete --name ${group} --yes`);
 		} catch (error) {
 			if (error.message.includes("could not be found.")) {
