@@ -4,36 +4,16 @@ import { renderString } from "src/string.util";
 
 const APP_LABEL = config.label;
 
-export interface BookingOptions {
-	/**
-	 * Deployment ID
-	 */
-	id: string
-
-	/**
-	 * Image name to use
-	 */
-	image?: string
-
-	/**
-	 * GSLT Token
-	 */
-	token: string
-
+export interface GameArgsOptions {
 	/**
 	 * Server IP to bind
 	 */
-	ip?: string
+	ip: string
 
 	/**
 	 * Server port to bind
 	 */
 	port?: number
-
-	/**
-	 * Node hostname to use
-	 */
-	hostname?: string
 
 	/**
 	 * Server name to use
@@ -61,9 +41,13 @@ export interface BookingOptions {
 
 	/**
 	 * SourceTV options
-	 * Leave blank to not deploy source tv
 	 */
 	tv?: {
+		/**
+		 * Is TV enabled
+		 */
+		enabled?: boolean,
+
 		/**
 		 * Server port to bind source tv
 		 */
@@ -77,8 +61,25 @@ export interface BookingOptions {
 	}
 }
 
-export class BookingChart {
-	static render(options: BookingOptions) {
+export interface BookingOptions extends GameArgsOptions {
+	/**
+	 * Deployment ID
+	 */
+	id: string
+
+	/**
+	 * Image name to use
+	 */
+	image: string
+
+	/**
+	 * Node hostname to use
+	 */
+	hostname: string
+}
+
+export class ServerChart {
+	static render(options: BookingOptions): string {
 		const args = this.getArgs(options);
 		const app = "tf2"
 		return renderString(fs.readFileSync(__dirname + '/../../../assets/deployment.yaml').toString(), {
@@ -91,9 +92,8 @@ export class BookingChart {
 		});
 	}
 
-	static getArgs(options: BookingOptions) {		
+	static getArgs(options: GameArgsOptions): string {
 		let args = "./srcds_run +servercfgfile server -condebug";
-		args += ` +sv_setsteamaccount \\"${options.token}\\"`;
 		args += ` +hostname \\"${options.servername || "Team Fortress"}\\"`;
 		args += ` +sv_password \\"${options.password || ""}\\"`;
 		args += ` +rcon_password \\"${options.rconPassword || ""}\\"`;
@@ -103,7 +103,7 @@ export class BookingChart {
 		if (options.ip)
 			args += ` +ip ${options.ip}`;
 
-		if (options.tv) {
+		if (options.tv.enabled) {
 			args += ` +tv_enable 1`;
 			args += ` +tv_name \\"${options.tv.name || "SourceTV"}\\"`;
 			args += ` +tv_title \\"${options.tv.name || "SourceTV"}\\"`;

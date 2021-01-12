@@ -1,25 +1,8 @@
 {
-  "mongodbUri": "mongodb://admin:4CA7DGTGG49K6IE0UD67EWBQEJOFDNY1@mongodb:27017/lighthouse",
-  "steamWebToken": "016376737DA73C56A718E7D52F9ABADF",
-  "elastic": {
-    "host": "http://elasticsearch-elasticsearch-master.nexus:9200",
-    "index": "lighthouse-bookings-dev"
-  },
-  "limit": 12,
-  "namespace": "lighthouse",
-  "ip": "139.99.131.144",
+  "mongodbUri": "mongodb://admin@mongodb:27017/lighthouse-dev-v1",
   "instance": {
     "hostname": "Qixalite Booking",
-    "tv_name": "QixTV",
-    "image": {
-      "name": "docker.qixalite.com/lighthouse/tf2",
-      "tag": "latest"
-    }
-  },
-  "waitPeriod": 910,
-  "ports": {
-    "min": 25000,
-    "max": 27000
+    "tv_name": "QixTV"
   },
   "label": "lighthouse.qixalite.com"
 }
