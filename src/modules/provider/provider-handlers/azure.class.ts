@@ -43,6 +43,7 @@ export class AzureHandler extends Handler {
 			await exec(`az vm create --resource-group ${group} --name ${group} --image "${metadata.azureImage}" --admin-username lighthouse --admin-password "${metadata.azureRootPassword}"`)
 			await exec(`az vm run-command invoke --resource-group ${group} --name ${group} --command-id RunShellScript --scripts "${script}"`);
 			await exec(`az network nsg rule create --resource-group ${group} --nsg-name ${group}NSG --name allow-game --access Allow --direction Inbound --source-port-ranges '*' --source-address-prefixes '*' --destination-port-ranges 27015 27020 --destination-address-prefixes '*' --protocol '*' --priority 2000`);
+			await exec(`az network public-ip update -g ${group} -n ${group}PublicIP --idle-timeout 30`);
 			const ip = await exec(`az vm show -d -g ${group} -n ${group} --query publicIps -o tsv`);
 			const ip_str = ip.stdout.replace("\n", "");
 

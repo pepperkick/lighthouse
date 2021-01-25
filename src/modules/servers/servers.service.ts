@@ -96,8 +96,15 @@ export class ServersService {
    *
    * @param client
    */
-  async getActive(client: Client): Promise<Server[]> {
+  async getActiveServersByClient(client: Client): Promise<Server[]> {
     return this.repository.find({ client: client.id, $or: SERVER_ACTIVE_STATUS_CONDITION });
+  }
+
+  /**
+   * Get active servers
+   */
+  async getActiveServers(): Promise<Server[]> {
+    return this.repository.find({ $or: SERVER_ACTIVE_STATUS_CONDITION });
   }
 
   /**
@@ -105,8 +112,15 @@ export class ServersService {
    *
    * @param client
    */
-  async getAll(client: Client): Promise<Server[]> {
+  async getAllServersByClient(client: Client): Promise<Server[]> {
     return this.repository.find({ client: client.id }).limit(50);
+  }
+
+  /**
+   * Get all servers
+   */
+  async getAllServers(): Promise<Server[]> {
+    return this.repository.find({}).limit(50);
   }
 
   /**

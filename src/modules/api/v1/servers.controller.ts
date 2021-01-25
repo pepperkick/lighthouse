@@ -12,12 +12,23 @@ export class ServersController {
    * Get list of servers
    */
   @Get("/")
-  @UseGuards(ClientGuard)
-  async get(@Req() request: RequestWithClient, @Query("all") all: boolean): Promise<Server[]> {
+  async getServers(@Query("all") all: boolean): Promise<Server[]> {
     if (all)
-      return this.service.getAll(request.client);
+      return this.service.getAllServers();
 
-    return this.service.getActive(request.client);
+    return this.service.getActiveServers();
+  }
+
+  /**
+   * Get list of servers by client
+   */
+  @Get("/client")
+  @UseGuards(ClientGuard)
+  async getServersByClient(@Req() request: RequestWithClient, @Query("all") all: boolean): Promise<Server[]> {
+    if (all)
+      return this.service.getAllServersByClient(request.client);
+
+    return this.service.getActiveServersByClient(request.client);
   }
 
   /**
