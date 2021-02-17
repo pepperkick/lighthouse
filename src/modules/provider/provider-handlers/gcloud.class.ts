@@ -1,12 +1,13 @@
 import * as Compute from "@google-cloud/compute";
-import { Handler, InstanceOptions } from "../handler.class";
+import { Handler } from "../handler.class";
 import { Provider } from "../provider.model";
 import * as config from "../../../../config.json"
 import { writeFileSync } from "fs";
-import { BookingChart } from "src/modules/booking/booking.chart";
-import { BookingService } from "src/modules/booking/booking.service";
+import { ServerChart } from "src/modules/servers/server.chart";
 import { renderString } from "src/string.util";
 import * as Ansible from "node-ansible";
+import { Game } from '../../games/game.model';
+import { Server } from '../../servers/server.model';
 
 const STARTUP_SCRIPT = 
 `           #! /bin/bash
@@ -102,13 +103,12 @@ export class GCloudHandler extends Handler {
 	config: any
 	project: string
 
-	constructor(
-		provider: Provider,
-		bookingService: BookingService
-	) {
-		super(provider, bookingService);
+	constructor(provider: Provider, game: Game) {
+		super(provider);
 
-		this.config = JSON.parse(provider.metadata.gcloudconfig);
+		provider.metadata = { ...provider.metadata, ...game.data.providerOverrides.gcp };
+
+		this.config = JSON.parse(provider.metadata.gcpConfig);
 		this.project = this.config.project_id;
 		
 		writeFileSync(`./gcloud-${provider.id}-${this.project}.key.json`, JSON.stringify(this.config));
@@ -117,41 +117,37 @@ export class GCloudHandler extends Handler {
 			projectId: this.project, 
 			keyFilename: `./gcloud-${provider.id}-${this.project}.key.json`
 		});
-		this.zone = this.compute.zone(provider.metadata.zone);
-		this.region = this.compute.region(provider.metadata.region);
+		this.zone = this.compute.zone(provider.metadata.gcpZone);
+		this.region = this.compute.region(provider.metadata.gcpRegion);
 	}	
 
-	async createInstance(options: InstanceOptions) {
+	async createInstance(options: Server): Promise<Server> {
+		options.port = 27015;
+		options.tvPort = 27020;
+
 		const data = {
-			id: options.id,
-			token: options.token, 
-			image: options.image || this.provider.metadata.image,
-			servername: options.servername || config.instance.hostname,
-			ip: null, port: 27015, 
-			password: options.password, 
-			rconPassword: options.rconPassword, 
-			tv: { port: 27020, name: config.instance.tv_name },
-			provider: { 
-				id: this.provider.id,
-				autoClose: this.provider.metadata.autoClose || { time: 905, min: 1 }
-			},
-			selectors: this.provider.selectors
+			...options.toJSON(),
+			id: options._id,
+			image: this.provider.metadata.image,
+			tv: { enabled: true, port: 27020, name: config.instance.tv_name }
 		}
-		const args = BookingChart.getArgs(data)
+
+		const args = ServerChart.getArgs(data)
 		const script = renderString(STARTUP_SCRIPT, {
-			id: options.id,
-			image: options.image || this.provider.metadata.image,
+			id: data.id,
+			image: data.image,
 			args
 		})
+
 		const playbook = renderString(CREATE_PLAYBOOK, {
 			app: "tf2",
 			gcp_cred_file: `./gcloud-${this.provider.id}-${this.project}.key.json`,
 			project: this.project,
 			id: options.id,
-			zone: this.provider.metadata.zone,
-			region: this.provider.metadata.region,
-			image: this.provider.metadata.vmImage,
-			machine_type: this.provider.metadata.machineType,
+			zone: this.provider.metadata.gcpZone,
+			region: this.provider.metadata.gcpRegion,
+			image: this.provider.metadata.gcpVmImage,
+			machine_type: this.provider.metadata.gcpMachineType,
 			startup_script: script       
 		});
 		
@@ -167,29 +163,31 @@ export class GCloudHandler extends Handler {
 			const ip = (await address_data[0].getMetadata())[0].address;
 
 			data.ip = ip;
+			options.ip = ip;
+			await options.save();
 		}	catch (error) {
 			this.logger.error("Failed to create instance", error);
 			throw error;
 		}	
 
-		return data;
+		return options;
   }
   
-	async destroyInstance(id: string) {
+	async destroyInstance(server: Server): Promise<void> {
 		const playbook = renderString(DESTROY_PLAYBOOK, {
 			app: "tf2",
 			gcp_cred_file: `./gcloud-${this.provider.id}-${this.project}.key.json`,
 			project: this.project,
-			id: id,
-			zone: this.provider.metadata.zone,
-			region: this.provider.metadata.region,
-			image: this.provider.metadata.vmImage 
+			id: server.id,
+			zone: this.provider.metadata.gcpZone,
+			region: this.provider.metadata.gcpRegion,
+			image: this.provider.metadata.gcpVmImage
 		});
 
 		try {
-			writeFileSync(`./gcloud-playbook-${id}-destroy.yml`, playbook);
+			writeFileSync(`./gcloud-playbook-${server.id}-destroy.yml`, playbook);
 
-			const command = new Ansible.Playbook().playbook(`gcloud-playbook-${id}-destroy`);
+			const command = new Ansible.Playbook().playbook(`gcloud-playbook-${server.id}-destroy`);
 			const result = await command.exec();
 			this.logger.log(result);
 		} catch (error) {
@@ -197,120 +195,4 @@ export class GCloudHandler extends Handler {
 			throw error;			
 		}
 	}
-
-	// async createInstance(options: InstanceOptions) {
-	// 	const address = this.region.address(`tf2-${options.id}`);
-	// 	let ip;
-
-	// 	try {
-	// 		const address_data = await address.create();
-	// 		await address_data[1].promise();
-	// 		ip = (await address_data[0].getMetadata())[0].address;
-	// 	} catch (error) {
-	// 		if (error.code === 409 && error.errors.filter(e => e.reason === "alreadyExists").length > 0) {
-	// 			this.logger.warn("Failed to create address as it already exists, reusing it.");
-	// 			const address_data = await address.get();
-	// 			ip = (await address_data[0].getMetadata())[0].address;
-	// 		} else {
-	// 			this.logger.error("Failed to create address", error);	
-	// 			throw error;
-	// 		}
-	// 	}
-
-	// 	this.logger.debug(`Got GCloud IP ${ip} for booking ${options.id}`);
-		
-	// 	const data = {
-	// 		id: options.id,
-	// 		token: options.token, 
-	// 		image: options.image || this.provider.metadata.image,
-	// 		servername: options.servername || config.instance.hostname,
-	// 		ip: null, port: 27015, 
-	// 		password: options.password, 
-	// 		rconPassword: options.rconPassword, 
-	// 		tv: { port: 27020, name: config.instance.tv_name },
-	// 		provider: { 
-	// 			id: this.provider.id,
-	// 			autoClose: this.provider.metadata.autoClose || { time: 905, min: 1 }
-	// 		},
-	// 		selectors: this.provider.selectors
-	// 	}
-
-	// 	try {
-	// 		const vm_data =  await this.zone.createVM(`tf2-${options.id}`, {
-	// 			os: this.provider.metadata.vmImage,
-	// 			machineType: this.provider.metadata.machineType,
-	// 			networkInterfaces: [ { accessConfigs: {
-	// 				name: "External NAT",
-	// 				type: "ONE_TO_ONE_NAT",
-  //         networkTier: "PREMIUM",
-	// 				natIP: ip
-	// 			} } ],
-	// 			metadata: {
-	// 				items: [ { 
-	// 					key: "startup-script",
-	// 					value: 
-	// 						`
-	// 						#! /bin/bash
-
-	// 						export BOOKING_ID=${data.id}
-
-	// 						while : ; do
-	// 							if sudo iptables -L INPUT | grep -i "policy accept"; then
-	// 								break
-	// 							else
-	// 								sudo iptables -P INPUT ACCEPT
-	// 							fi
-	// 						done
-
-	// 						while : ; do
-	// 							if sudo iptables -L OUTPUT | grep -i "policy accept"; then
-	// 								break
-	// 							else
-	// 								sudo iptables -P OUTPUT ACCEPT
-	// 							fi
-	// 						done
-	
-	// 						docker run --network host ${this.provider.metadata.image} ${BookingChart.getArgs(data)}
-	// 						`
-	// 				} ]
-	// 			}
-	// 		});
-	
-	// 		data.ip = ip
-
-	// 		await vm_data[1].promise();
-	// 	} catch (error) {
-	// 		this.logger.error("Failed to create VM", error);
-
-	// 		try {
-	// 			const address = this.region.address(`tf2-${options.id}`);
-	// 			const address_data = await address.delete();
-	// 			await address_data[0].promise();
-	// 		} catch (error) {
-	// 			this.logger.error("Failed to delete address for failed VM", error);				
-	// 		}
-
-	// 		throw error;
-	// 	}
-
-	// 	return data;
-	// }
-
-	// async destroyInstance(id: string) {
-	// 	try {
-	// 		const address = this.region.address(`tf2-${id}`);
-	// 		const address_data = await address.delete();
-	// 		await address_data[0].promise();
-	// 	} catch (error) {
-	// 		this.logger.error("Failed to remove address", error);
-	// 	}
-
-	// 	try {
-	// 		const vm = this.zone.vm(`tf2-${id}`);
-	// 		const vm_data = await vm.delete();
-	// 		await vm_data[0].promise();
-	// 	} catch (error) {
-	// 		this.logger.error("Failed to remove vm", error);
-	// 	}
-	// }
 }

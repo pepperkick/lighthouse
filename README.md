@@ -1,103 +1,326 @@
 # Lighthouse
-Game server manager to control services in a modular way
+Modular game server manager. Abstracts multiple providers to easily start a new server.
+
+Supported Providers
+- Kubernetes Cluster
+- Google Cloud
+- Microsoft Azure
+- Digital Ocean
+- Vultr
 
 ## Config
 
-```
-{
-  "limit": 2,                     // Limit number of parallel bookings
-  "namespace": "",                // Kubernetes namespace to run servers in
-  "ip": "",                       // Public listen IP for server (currently hardcoded until I find a better solution)
-  "ports": {                      // Range of ports, booking service will pick a random free port between min and max values
-    "min": 25000,       
-    "max": 27000        
-  },        
-  "waitPeriod": 300,              // After a booking has been determined as inactive
-                                  // how long should the booking service wait before automatically unbooking it
+```json5
+{  
   "instance": {                   // Configuration to pass server instance
-    "image": {                    // Image details to use for server deployment
-      "name": "",                 // Name of image (eg: docker.qixalite.com/tf2)
-      "tag": ""                   // Tag of image (eg: flavor-booking)
-    },        
     "tv_name": "",                // SourceTV name (eg: QixTV)
     "hostname": ""                // Default server name (eg: Qixalite Bookable)
-  },        
-  "tokens": [],                   // Array of GSLT tokens
+  },
   "label": ""                     // Label to use for storing data in deployment (eg: "com.qixalite.lighthouse")
+}
+```
+
+## Database
+
+### Game
+```json5
+{
+  slug: "",
+  name: "",
+  data: {
+    // Type to use during server queries
+    queryType: "string",
+    
+    // Override provider metadata depending on provider type
+    providerOverrides: {
+      kubernetes: {},
+      gcp: {},
+      azure: {},
+      digital_ocean: {},
+      vultr: {}
+    }
+  }
+}
+```
+
+### Provider
+```json5
+{
+  _id: "",
+  type: "",
+  limit: 0,
+  region: "",
+  priority: 0,
+  metadata: { 
+    // Common 
+    image: "", 
+    hidden: false,  
+    autoClose: {
+      time: 0,
+      min: 0
+    },
+    
+    // Kubernetes
+    kubeConfig: "",
+    kubePorts: { min: 0, max: 0 },
+    kubeIp: "",
+    kubeHostname: "",
+    kubeNamespace: "",
+    
+    // Google Cloud
+    gcpConfig: "",
+    gcpRegion: "",
+    gcpZone: "",
+    gcpVmImage: "",
+    gcpMachineType: "",
+    
+    // Azure
+    azureTenantId: "",
+    azureUsername: "",
+    azurePassword: "",
+    azureClientId: "",
+    azureSubscriptionId: "",
+    azureLocation: "",
+    azureImage: "",
+    azureRootPassword: "",
+    azureMachineType: "",
+    
+    // Digital Ocean
+    digitalOceanToken: "",
+    digitalOceanRegion: "",
+    digitalOceanMachineType: "",
+    digitalOceanMachineImage: "",
+    digitalOceanSSHKeyId: 0,
+    
+    // Vultr
+    vultrApiKey: "",
+    vultrPlanId: 0,
+    vultrLocationId: 0,
+  }
+}
+```
+
+### Client
+```json5
+{
+  id: "",
+  secret: "",
+  name: "",
+  access: {
+    games: [ "Game" ],
+    regions: {
+      slug: {
+        limit: 0
+      }
+    },
+    providers: [ "Provider" ]
+  },
+  noAccess: {
+    providers: [ "Provider" ]
+  }
+}
+```
+
+### Server
+```json5
+{
+  client: "Client",
+  game: "Game",
+  createdAt: "Date",
+  password: "",
+  rconPassword: "",
+  tvPassword: "",
+  port: 0,
+  tvPort: 0,
+  ip: "",
+  region: "",
+  provider: "Provider"
 }
 ```
 
 ## API
 
-**GET /booking/book**
+**GET /api/v1/providers/region/:region**
 
-Return list of all bookings
-
-Request
-```
-GET /booking/book
-```
+Get a list of providers that the client has access to and can handle a request
 
 Response
+```json
+[
+  "sydney_kubernetes_1",
+  "sydney_kubernetes_2"
+]
 ```
+
+**GET api/v1/servers**
+
+Get list of servers. By default, it will show list of active servers only. Use `all` query to get all servers.
+
+Headers
+```json5
 {
-  "limit": 4,                       // Limit of bookings
-  "inUse": 1,                       // In use bookings
-  "bookings": [                     // Array of bookings
-    {
-      "id":"189714596557357056",    // ID of booking (currently discord ID of booker)
-      "name":"PepperKick#0630",     // Name of booking (currently discord username of booker)
-      "port":"25268",               // Port of booking server
-      "tvPort":"25269",             // SourceTV Port of booking server
-      "password":"0fc2cc9c",        // Password of booking server
-      "rconPassword":"ad9c25s",     // RCON Password of booking server
-      "token":"< token >",          // GSLT token of booking server
-      "ip":"43.249.38.147"          // IP of booking server (currently reads config IP)
-    }
-  ]
+    // Client's secret
+    "Authorization": "Bearer <secret>"
 }
 ```
 
-**POST /booking/book**
-
-Create a new booking
-
-Request
-```
-POST /booking/book
-body: {
-  "id": "189714596557357056",       // ID of booking (currently discord ID of booker)
-  "name": "PepperKick#0630",        // Name of booking (currently discord username of booker)
-  "region": ""                      // Region of booking (currently not supported)
+Query
+```json5
+{
+  // Fetch all servers
+  "all": "boolean"
 }
 ```
 
 Response
+```json5
+[
+  {
+    "_id": "5ffdec8ba4440d577c296a38",
+    "client": "KSW2NUZGB9YGLXZ9W4NG3TXWIRQ2HD4R",
+    "provider": "sydney_kubernetes_1",
+    "region": "sydney",
+    "game": "tf2-comp",
+    "createdAt": "2021-01-12T18:38:03.983Z",
+    "status": "INIT",
+    "closePref": {
+      "minPlayers": 1,
+      "idleTime": 300
+    },
+    "data": {
+      "name": "PepperKick"
+    },
+  }
+]
 ```
+
+Status Code
+```
+Status Code: 200
+Status Code: 401 (Unauthorized)
+```
+
+
+
+**POST api/v1/servers**
+
+Create a new server request
+
+Headers
+```json5
 {
-  "id":"189714596557357056",        // ID of booking (currently discord ID of booker)
-  "name":"PepperKick#0630",         // Name of booking (currently discord username of booker)
-  "port":"25268",                   // Port of booking server
-  "tvPort":"25269",                 // SourceTV Port of booking server
-  "password":"0fc2cc9c",            // Password of booking server
-  "rconPassword":"ad9c25s",         // RCON Password of booking server
-  "token":"< token >",              // GSLT token of booking server
-  "ip":"43.249.38.147"              // IP of booking server (currently reads config IP)
+  // Client's secret
+  "Authorization": "Bearer <secret>"
 }
 ```
 
-**DELETE /booking/book/:id**
+Body
+```json5
+{
+  // Game to create server for
+  "game": "tf2-comp",
+  
+  // Region of the server
+  "region": "sydney",
+  
+  // Provider that will handle the request
+  "provider": "sydney_kubernetes_1",
+
+  // Set preferences for auto closing server
+  "closePref": {
+    "minPlayers": 1,
+    "idleTime": 300
+  },
+  
+  // Custom data to store with the request
+  "data": {
+    "name": "PepperKick"
+  }
+}
+```
+
+Response
+```json5
+{
+  "_id": "5ffdec8ba4440d577c296a38",
+  "client": "KSW2NUZGB9YGLXZ9W4NG3TXWIRQ2HD4R",
+  "provider": "sydney_kubernetes_1",
+  "region": "sydney",
+  "game": "tf2-comp",
+  "createdAt": "2021-01-12T18:38:03.983Z",
+  "status": "INIT",
+  "closePref": {
+    "minPlayers": 1,
+    "idleTime": 300
+  },
+  "data": {
+    "name": "PepperKick"
+  },
+}
+```
+Status Code
+```
+Status Code: 200 (Successfully created a request)
+Status Code: 400 (Cannot create the request)
+Status Code: 401 (Unauthorized)
+```
+
+**GET /api/v1/servers/:id**
+
+Get server info
+
+Headers
+```json5
+{
+  // Client's secret
+  "Authorization": "Bearer <secret>"
+}
+```
+
+Response
+```json5
+{
+  "_id": "5ffdf1564314b70c2015c0d9",
+  "client": "KSW2NUZGB9YGLXZ9W4NG3TXWIRQ2HD4R",
+  "provider": "sydney_kubernetes_1",
+  "region": "sydney",
+  "game": "tf2-comp",
+  "createdAt": "2021-01-12T18:58:30.087Z",
+  "status": "IDLE",
+  "data": {
+    "name": "PepperKick"
+  },
+  "password": "b9b624c8",
+  "rconPassword": "92668958",
+  "ip": "139.99.131.144",
+  "port": 2628,
+  "tvPort": 2629
+}
+```
+
+Status Code
+```
+Status Code: 200
+Status Code: 404 (Server not found)
+```
+
+**DELETE /api/v1/servers/:id**
 
 Delete a booking
 
-Request
-```
-DELETE /booking/book/189714596557357056
+Headers
+```json5
+{
+  // Client's secret
+  "Authorization": "Bearer <secret>"
+}
 ```
 
-Response
+Status Code
 ```
-Status Code: 200
+Status Code: 200 (Successfully created a request)
+Status Code: 400 (Cannot close the request)
+Status Code: 404 (Server not found)
 ```
 
 
