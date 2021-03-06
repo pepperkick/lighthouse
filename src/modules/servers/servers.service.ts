@@ -16,10 +16,11 @@ import { KubeData } from '../provider/provider-handlers/kubernentes.class';
 import { query } from 'gamedig';
 import * as crypto from 'crypto';
 import axios from "axios";
+import { Game } from '../../objects/game.enum';
 
 export interface ServerRequestOptions {
   // Game to use while deploying
-  game: string
+  game: Game
 
   // Region of the server
   region: string
@@ -41,7 +42,11 @@ export interface ServerRequestOptions {
   }
 
   // Custom data
-  data?: any
+  data?: {
+    // Repository info
+    git_repository?: string
+    git_deploy_key?: string
+  } & { any }
 }
 
 const SERVER_ACTIVE_STATUS_CONDITION = [
@@ -134,6 +139,14 @@ export class ServersService {
 
     this.logger.log(`Received new server request from client '${client.id}' at region '${region}' for game '${game}'`);
 
+    // Check if client can have the required close timer
+    if (options.closePref && options.closePref.idleTime > client.getCloseTimerLimit())
+      throw new ForbiddenException(`Requested close time limit is too high`)
+
+    // Verify min players
+    if (options.closePref && options.closePref.minPlayers < 1)
+      throw new ForbiddenException(`Requested minimum player is too low`)
+
     // Check if the client has access to the game
     if (!client.hasGameAccess(game))
       throw new ForbiddenException(`Client does not have access to '${game}' game.`)
@@ -144,10 +157,19 @@ export class ServersService {
 
     // Fetch all servers inuse by the client
     const clientServers = await this.repository.find(
-      { region: region, client: client.id, $or: SERVER_ACTIVE_STATUS_CONDITION })
+      { client: client.id, $or: SERVER_ACTIVE_STATUS_CONDITION })
+
+    // Check if client has not reached limit
+    if (clientServers.length >= client.getLimit())
+      throw new HttpException(
+        `Cannot create new server as client has reached the limit.`, 429);
+
+    // Fetch all servers inuse by the client in the region
+    const clientRegionServers = await this.repository.find(
+      { region, client: client.id, $or: SERVER_ACTIVE_STATUS_CONDITION })
 
     // Check if client has not reached limit for the region
-    if (clientServers.length >= client.getRegionLimit(region))
+    if (clientRegionServers.length >= client.getRegionLimit(region))
       throw new HttpException(
         `Cannot create new server in '${region}' region as client has reached the limit.`, 429);
 
@@ -226,14 +248,14 @@ export class ServersService {
       try {
         await this.initializeServer(server);
       } catch (exception) {
-        this.logger.error("Failed to initialize server", exception);
+        this.logger.error(`Failed to initialize server ${exception}`, exception.stack);
         await this.updateStatusAndNotify(server, ServerStatus.FAILED);
       }
     } else if (server.status === ServerStatus.CLOSING) {
       try {
         await this.closeServer(server);
       } catch (exception) {
-        this.logger.error("Failed to close server", exception);
+        this.logger.error(`Failed to close server ${exception}`, exception.stack);
         await this.updateStatusAndNotify(server, ServerStatus.FAILED);
       }
     }
@@ -308,6 +330,7 @@ export class ServersService {
         { status: ServerStatus.RUNNING }
       ]
     });
+    this.logger.debug(`Found ${activeServers.length} running servers...`)
     for (const server of activeServers) {
       setTimeout(async () => await this.checkForMinimumPlayers(server), 100);
     }
@@ -370,7 +393,7 @@ export class ServersService {
         type: game.data.queryType
       });
 
-      this.logger.debug(`Pinged ${server.id} (${server.ip}:${server.port}) server, ${data.players.length} playing`);
+      this.logger.debug(`Pinged ${server.id} [${server.game}] (${server.ip}:${server.port}) server, ${data.players.length} playing`);
 
       if (data.players.length < server.closePref.minPlayers) {
         await this.updateStatusAndNotify(server, ServerStatus.IDLE);

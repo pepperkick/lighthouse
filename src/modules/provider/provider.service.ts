@@ -1,7 +1,7 @@
-import { Injectable, Logger, forwardRef, Inject, UnauthorizedException } from '@nestjs/common';
-import { InjectModel } from "@nestjs/mongoose";
-import { Model } from "mongoose";
-import { Provider, ProviderType } from "./provider.model";
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Provider, ProviderType } from './provider.model';
 import { KubeData, KubernetesHandler } from './provider-handlers/kubernentes.class';
 import { GCloudHandler } from './provider-handlers/gcloud.class';
 import { AzureHandler } from './provider-handlers/azure.class';
@@ -10,6 +10,9 @@ import { VultrHandler } from './provider-handlers/vultr.class';
 import { Server } from '../servers/server.model';
 import { Game } from '../games/game.model';
 import { Client } from '../clients/client.model';
+import { GameArgsOptions as Tf2Options, Tf2Chart } from '../games/charts/tf2.chart';
+import { GameArgsOptions as ValheimOptions, ValheimChart } from '../games/charts/valheim.chart';
+import { Game as GameEnum } from '../../objects/game.enum';
 
 @Injectable()
 export class ProviderService {
@@ -67,7 +70,7 @@ export class ProviderService {
 	async createInstance(provider: Provider, server: Server, game: Game, data?: KubeData): Promise<any> {
 		this.logger.debug(`Creating resources for server '${server.id}' using provider '${provider.id}' for game '${game.name}'`);
 
-		switch(provider.type) {
+		switch (provider.type) {
 			case ProviderType.KubernetesNode:
 				return new KubernetesHandler(provider, game, data).createInstance(server);
 			case ProviderType.GCloud:

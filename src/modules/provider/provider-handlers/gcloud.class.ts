@@ -1,101 +1,20 @@
 import * as Compute from "@google-cloud/compute";
 import { Handler } from "../handler.class";
 import { Provider } from "../provider.model";
-import * as config from "../../../../config.json"
 import { writeFileSync } from "fs";
-import { ServerChart } from "src/modules/servers/server.chart";
 import { renderString } from "src/string.util";
 import * as Ansible from "node-ansible";
 import { Game } from '../../games/game.model';
 import { Server } from '../../servers/server.model';
+import { Game as GameEnum } from '../../../objects/game.enum';
+import { GCP_STARTUP_SCRIPT as TF2_STARTUP_SCRIPT, GCP_CREATE_PLAYBOOK, GCP_DESTROY_PLAYBOOK } from '../../../assets/tf2';
+import { GCP_STARTUP_SCRIPT as VALHEIM_STARTUP_SCRIPT } from '../../../assets/valheim';
+import { GameArgsOptions as Tf2Options, Tf2Chart } from '../../games/charts/tf2.chart';
+import { GameArgsOptions as ValheimOptions, ValheimChart } from '../../games/charts/valheim.chart';
 
-const STARTUP_SCRIPT = 
-`           #! /bin/bash
-            
-            export BOOKING_ID={{ id }}
-            
-            while : ; do
-              if sudo iptables -L INPUT | grep -i "policy accept"; then
-                break
-              else
-                sudo iptables -P INPUT ACCEPT
-              fi
-            done
-            
-            while : ; do
-              if sudo iptables -L OUTPUT | grep -i "policy accept"; then
-                break
-              else
-                sudo iptables -P OUTPUT ACCEPT
-              fi
-            done
-            
-            docker run --network host {{ image }} {{ args }}`
-const CREATE_PLAYBOOK =
-`
-- name: Create Booking in GCloud
-  hosts: localhost
-  gather_facts: no  
-  vars:
-    gcp_cred_kind: serviceaccount
-  tasks:
-  - name: Create a Address
-    gcp_compute_address:
-      name: '{{ app }}-{{ id }}'
-      region: "{{ region }}"
-      project: "{{ project }}"
-      auth_kind: "{{ gcp_cred_kind }}"
-      service_account_file: "{{ gcp_cred_file }}"
-      state: present
-    register: address
-  - name: Create an instance
-    gcp_compute_instance:
-      state: present
-      name: "{{ app }}-{{ id }}"
-      machine_type: {{ machine_type }}
-      network_interfaces:
-      - access_configs:
-        - name: External NAT
-          nat_ip: "{{ address }}"
-          type: ONE_TO_ONE_NAT
-      disks:
-      - auto_delete: true
-        boot: true
-        initialize_params: 
-          source_image: "{{ image }}"
-      metadata:
-        startup-script: >-
-{{ startup_script }}
-      zone: "{{ zone }}"
-      project: "{{ project }}"
-      auth_kind: "{{ gcp_cred_kind }}"
-      service_account_file: "{{ gcp_cred_file }}"
-`
-const DESTROY_PLAYBOOK =
-`
-- name: Destroy Booking in GCloud
-  hosts: localhost
-  gather_facts: no  
-  vars:
-    gcp_cred_kind: serviceaccount
-  tasks:
-  - name: Delete the instance
-    gcp_compute_instance:
-      name: "{{ app }}-{{ id }}"
-      zone: "{{ zone }}"
-      project: "{{ project }}"
-      auth_kind: "{{ gcp_cred_kind }}"
-      service_account_file: "{{ gcp_cred_file }}"
-      state: absent
-  - name: Delete the Address
-    gcp_compute_address:
-      name: '{{ app }}-{{ id }}'
-      region: "{{ region }}"
-      project: "{{ project }}"
-      auth_kind: "{{ gcp_cred_kind }}"
-      service_account_file: "{{ gcp_cred_file }}"
-      state: absent
-`
+const CREATE_PLAYBOOK = GCP_CREATE_PLAYBOOK
+const DESTROY_PLAYBOOK = GCP_DESTROY_PLAYBOOK
+
 export class GCloudHandler extends Handler {
 	compute: any
 	zone: any
@@ -119,20 +38,44 @@ export class GCloudHandler extends Handler {
 		});
 		this.zone = this.compute.zone(provider.metadata.gcpZone);
 		this.region = this.compute.region(provider.metadata.gcpRegion);
-	}	
+	}
 
 	async createInstance(options: Server): Promise<Server> {
-		options.port = 27015;
-		options.tvPort = 27020;
+		let STARTUP_SCRIPT = "", app = "", data, args;
 
-		const data = {
-			...options.toJSON(),
-			id: options._id,
-			image: this.provider.metadata.image,
-			tv: { enabled: true, port: 27020, name: config.instance.tv_name }
+		switch (options.game) {
+			case GameEnum.TF2_COMP:
+				options.port = 27015
+				options.tvPort = 27020
+				data = Tf2Chart.getDataObject(options, {
+					port: options.port,
+					tvEnable: true,
+					tvPort: options.tvPort,
+					image: this.provider.metadata.image
+				}) as Tf2Options
+				args = Tf2Chart.getArgs(data);
+				break
+			case GameEnum.VALHEIM:
+				options.port = 2456
+				data = ValheimChart.getDataObject(options, {
+					port: options.port,
+					image: this.provider.metadata.image
+				}) as ValheimOptions
+				args = ValheimChart.getArgs(data);
+				break
 		}
 
-		const args = ServerChart.getArgs(data)
+		switch (options.game) {
+			case GameEnum.TF2_COMP:
+				STARTUP_SCRIPT = TF2_STARTUP_SCRIPT
+				app = "tf2"
+				break
+			case GameEnum.VALHEIM:
+				STARTUP_SCRIPT = VALHEIM_STARTUP_SCRIPT
+				app = "valheim"
+				break
+		}
+
 		const script = renderString(STARTUP_SCRIPT, {
 			id: data.id,
 			image: data.image,
@@ -140,7 +83,7 @@ export class GCloudHandler extends Handler {
 		})
 
 		const playbook = renderString(CREATE_PLAYBOOK, {
-			app: "tf2",
+			app,
 			gcp_cred_file: `./gcloud-${this.provider.id}-${this.project}.key.json`,
 			project: this.project,
 			id: options.id,
@@ -174,8 +117,19 @@ export class GCloudHandler extends Handler {
   }
   
 	async destroyInstance(server: Server): Promise<void> {
+		let app = "";
+
+		switch (server.game) {
+			case GameEnum.TF2_COMP:
+				app = "tf2"
+				break
+			case GameEnum.VALHEIM:
+				app = "valheim"
+				break
+		}
+
 		const playbook = renderString(DESTROY_PLAYBOOK, {
-			app: "tf2",
+			app,
 			gcp_cred_file: `./gcloud-${this.provider.id}-${this.project}.key.json`,
 			project: this.project,
 			id: server.id,

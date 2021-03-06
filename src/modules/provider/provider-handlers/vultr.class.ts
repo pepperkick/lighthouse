@@ -1,24 +1,17 @@
 import { Handler } from "../handler.class";
 import { Provider } from "../provider.model";
 import * as Vultr from "@vultr/vultr-node";
-import * as config from "../../../../config.json"
 import { renderString } from "src/string.util";
-import { ServerChart } from "src/modules/servers/server.chart";
 import * as sleep from "await-sleep";
+import { BookingOptions } from '../../games/charts/common.chart';
 import { query } from "gamedig";
 import { Game } from '../../games/game.model';
 import { Server } from '../../servers/server.model';
-
-const STARTUP_SCRIPT = 
-`#!/bin/bash
-
-ufw allow 27015/udp
-ufw allow 27015/tcp
-ufw allow 27020/udp
-ufw allow 27020/tcp
-
-IP=$(curl -s https://icanhazip.com)
-docker run -d --network host {{ image }} {{ args }} +ip "$IP"`
+import { Game as GameEnum } from '../../../objects/game.enum';
+import { VULTR_STARTUP_SCRIPT as TF2_STARTUP_SCRIPT } from '../../../assets/tf2';
+import { VULTR_STARTUP_SCRIPT as VALHEIM_STARTUP_SCRIPT } from '../../../assets/valheim';
+import { GameArgsOptions as Tf2Options, Tf2Chart } from '../../games/charts/tf2.chart';
+import { GameArgsOptions as ValheimOptions, ValheimChart } from '../../games/charts/valheim.chart';
 
 export class VultrHandler extends Handler {
 	api: any;
@@ -34,17 +27,39 @@ export class VultrHandler extends Handler {
 	}
 
 	async createInstance(options: Server): Promise<Server> {
-		options.port = 27015;
-		options.tvPort = 27020;
+		let STARTUP_SCRIPT = "", data, args;
 
-		const data = {
-			...options.toJSON(),
-			id: options._id,
-			image: this.provider.metadata.image,
-			tv: { enabled: true, port: 27020, name: config.instance.tv_name }
+		switch (options.game) {
+			case GameEnum.TF2_COMP:
+				options.port = 27015
+				options.tvPort = 27020
+				data = Tf2Chart.getDataObject(options, {
+					port: options.port,
+					tvEnable: true,
+					tvPort: options.tvPort,
+					image: this.provider.metadata.image
+				}) as Tf2Options
+				args = Tf2Chart.getArgs(data);
+				break
+			case GameEnum.VALHEIM:
+				options.port = 2456
+				data = ValheimChart.getDataObject(options, {
+					port: options.port,
+					image: this.provider.metadata.image
+				}) as ValheimOptions
+				args = ValheimChart.getArgs(data);
+				break
 		}
 
-		const args = ServerChart.getArgs(data);
+		switch (options.game) {
+			case GameEnum.TF2_COMP:
+				STARTUP_SCRIPT = TF2_STARTUP_SCRIPT
+				break
+			case GameEnum.VALHEIM:
+				STARTUP_SCRIPT = VALHEIM_STARTUP_SCRIPT
+				break
+		}
+
 		const script = renderString(STARTUP_SCRIPT, {
 			id: data.id,
 			image: data.image,
@@ -102,23 +117,47 @@ export class VultrHandler extends Handler {
 			options.ip = info.main_ip;
 			await options.save();
 
-			let server_query;
-			retry = 0;
-			while (server_query === undefined) {		
-				try {
-					server_query = await query({
-						host: data.ip, 
-						port: data.port,
-						type: "tf2"
-					});
-				}	catch (error) {
-					this.logger.debug(`No response from server ${data.id} (${data.ip}:${data.port})`);
-				}
+			if (options.game === GameEnum.TF2_COMP) {
+				let server_query;
+				retry = 0;
+				while (server_query === undefined) {
+					try {
+						server_query = await query({
+							host: data.ip,
+							port: data.port,
+							type: "tf2"
+						});
+					}	catch (error) {
+						this.logger.debug(`No response from tf2-comp server ${data.id} (${data.ip}:${data.port})`);
+					}
 
-				await sleep(10000);
-				if (retry++ === 60) {
-					await this.destroyInstance(options);
-					throw new Error("Timeout waiting for the game instance");
+					await sleep(10000);
+					if (retry++ === 60) {
+						await this.destroyInstance(options);
+						throw new Error("Timeout waiting for the game instance");
+					}
+				}
+			} else if (options.game === GameEnum.VALHEIM) {
+				let server_query;
+				retry = 0;
+				while (server_query === undefined) {
+					try {
+						server_query = await query({
+							host: data.ip,
+							port: data.port,
+							// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+							// @ts-ignore
+							type: "valheim"
+						});
+					}	catch (error) {
+						this.logger.debug(`No response from valheim server ${data.id} (${data.ip}:${data.port})`);
+					}
+
+					await sleep(10000);
+					if (retry++ === 60) {
+						await this.destroyInstance(options);
+						throw new Error("Timeout waiting for the game instance");
+					}
 				}
 			}
 

@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { ServerStatus } from '../../objects/server-status.enum';
+import { Game } from '../../objects/game.enum';
 
 @Schema()
 export class Server extends Document {
@@ -8,7 +9,7 @@ export class Server extends Document {
   client: string
 
   @Prop({ type: String, required: true })
-  game: string
+  game: Game
 
   @Prop({ type: Date })
   createdAt: Date
@@ -44,7 +45,10 @@ export class Server extends Document {
   callbackUrl: string
 
   @Prop()
-  data: { any }
+  data: {
+    git_repository?: string
+    git_deploy_key?: string
+  } & { any }
 
   @Prop({ type: Boolean })
   markForClose: boolean

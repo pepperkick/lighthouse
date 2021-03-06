@@ -1,6 +1,8 @@
 import * as fs from "fs";
-import * as config from "../../../config.json"
+import * as path from "path";
+import * as config from "../../../../config.json"
 import { renderString } from "src/string.util";
+import { Server } from '../../servers/server.model';
 
 const APP_LABEL = config.label;
 
@@ -78,17 +80,21 @@ export interface BookingOptions extends GameArgsOptions {
 	hostname: string
 }
 
-export class ServerChart {
-	static render(options: BookingOptions): string {
+export class Tf2Chart {
+	static renderDeployment(options: BookingOptions): string {
 		const args = this.getArgs(options);
 		const app = "tf2"
-		return renderString(fs.readFileSync(__dirname + '/../../../assets/deployment.yaml').toString(), {
+		return renderString(
+			fs.readFileSync(
+				path.resolve(__dirname + '/../../../../assets/deployment.yaml'
+				)
+			).toString(), {
 			label: APP_LABEL,
 			app,
 			id: options.id,
 			image: options.image,
 			hostname: options.hostname,
-			args: args       
+			args
 		});
 	}
 
@@ -111,5 +117,39 @@ export class ServerChart {
 		}
 
 		return args;
+	}
+
+	static getDataObject(
+		server: Server,
+		{
+			port = 27815,
+			image = "",
+			tvEnable = false,
+			tvPort = 27020,
+			tvName = "QixTV",
+			hostname = "Team Fortress"
+		}
+	): BookingOptions {
+		const data: BookingOptions = {
+			...server.toJSON(),
+			id: server._id,
+			port: server.port || port,
+			image,
+			hostname
+		}
+
+		if (tvEnable) {
+			data.tv = {
+				enabled: true,
+				port: server.tvPort || tvPort,
+				name: tvName
+			}
+		}
+
+		return data
+	}
+
+	static queryServer(ip, port) {
+
 	}
 }

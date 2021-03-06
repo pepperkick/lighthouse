@@ -1,14 +1,16 @@
 import { Handler } from "../handler.class";
 import { Provider } from "../provider.model";
-import * as config from "../../../../config.json";
 import * as exec from "await-exec";
-import { ServerChart } from "src/modules/servers/server.chart";
+import { BookingOptions } from "src/modules/games/charts/common.chart";
 import { renderString } from "src/string.util";
 import { Server } from '../../servers/server.model';
 import { Game } from '../../games/game.model';
+import { AZURE_STARTUP_SCRIPT } from '../../../assets/tf2';
+import { Game as GameEnum } from '../../../objects/game.enum';
+import { GameArgsOptions as Tf2Options, Tf2Chart } from '../../games/charts/tf2.chart';
+import { GameArgsOptions as ValheimOptions, ValheimChart } from '../../games/charts/valheim.chart';
 
-const STARTUP_SCRIPT = 
-`docker run -d --network host {{ image }} {{ args }}`
+const STARTUP_SCRIPT = AZURE_STARTUP_SCRIPT
 
 export class AzureHandler extends Handler {
 	constructor(provider: Provider, game: Game) {
@@ -17,17 +19,29 @@ export class AzureHandler extends Handler {
 	}
 
 	async createInstance(options: Server): Promise<Server> {
-		options.port = 27015;
-		options.tvPort = 27020;
+		let data, args;
 
-		const data = {
-			...options.toJSON(),
-			id: options._id,
-			image: this.provider.metadata.image,
-			tv: { enabled: true, port: 27020, name: config.instance.tv_name }
+		switch (options.game) {
+			case GameEnum.TF2_COMP:
+				options.port = 27015
+				options.tvPort = 27020
+				data = Tf2Chart.getDataObject(options, {
+					port: options.port,
+					tvEnable: true,
+					tvPort: options.tvPort,
+					image: this.provider.metadata.image
+				}) as Tf2Options
+				args = Tf2Chart.getArgs(data);
+				break
+			case GameEnum.VALHEIM:
+				options.port = 2456
+				data = ValheimChart.getDataObject(options, {
+					port: options.port,
+					image: this.provider.metadata.image
+				}) as ValheimOptions
+				args = ValheimChart.getArgs(data);
+				break
 		}
-
-		const args = ServerChart.getArgs(data);
 		const script = renderString(STARTUP_SCRIPT, {
 			id: data.id,
 			image: data.image,
@@ -37,11 +51,11 @@ export class AzureHandler extends Handler {
 		try {
 			const metadata = this.provider.metadata;	
 			const group = `lighthouse-${data.id}`;
-			await exec(`az login -u "${metadata.azureUsername}" -p "${metadata.azurePassword}"`);
-			await exec(`az account set --subscription "${metadata.azureSubscriptionId}"`);
+			await exec(`az login -u '${metadata.azureUsername}' -p '${metadata.azurePassword}'`);
+			await exec(`az account set --subscription '${metadata.azureSubscriptionId}'`);
 			await exec(`az group create --name ${group} --location ${metadata.azureLocation}`);
-			await exec(`az vm create --resource-group ${group} --name ${group} --image "${metadata.azureImage}" --admin-username lighthouse --admin-password "${metadata.azureRootPassword}"`)
-			await exec(`az vm run-command invoke --resource-group ${group} --name ${group} --command-id RunShellScript --scripts "${script}"`);
+			await exec(`az vm create --resource-group ${group} --name ${group} --image '${metadata.azureImage}' --admin-username lighthouse --admin-password '${metadata.azureRootPassword}'`)
+			await exec(`az vm run-command invoke --resource-group ${group} --name ${group} --command-id RunShellScript --scripts '${script}'`);
 			await exec(`az network nsg rule create --resource-group ${group} --nsg-name ${group}NSG --name allow-game --access Allow --direction Inbound --source-port-ranges '*' --source-address-prefixes '*' --destination-port-ranges 27015 27020 --destination-address-prefixes '*' --protocol '*' --priority 2000`);
 			await exec(`az network public-ip update -g ${group} -n ${group}PublicIP --idle-timeout 30`);
 			const ip = await exec(`az vm show -d -g ${group} -n ${group} --query publicIps -o tsv`);

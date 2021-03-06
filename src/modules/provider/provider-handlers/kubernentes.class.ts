@@ -1,11 +1,12 @@
-import { Handler } from "../handler.class";
-import { Provider } from "../provider.model";
-import * as yaml from "js-yaml";
+import { Handler } from '../handler.class';
+import { Provider } from '../provider.model';
+import * as yaml from 'js-yaml';
 import * as ApiClient from 'kubernetes-client';
-import { ServerChart } from '../../servers/server.chart';
-import * as config from "../../../../config.json"
 import { Game } from '../../games/game.model';
 import { Server } from '../../servers/server.model';
+import { GameArgsOptions as Tf2Options, Tf2Chart } from '../../games/charts/tf2.chart';
+import { GameArgsOptions as ValheimOptions, ValheimChart } from '../../games/charts/valheim.chart';
+import { Game as GameEnum } from '../../../objects/game.enum';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { KubeConfig } = require('kubernetes-client')
@@ -46,28 +47,47 @@ export class KubernetesHandler extends Handler {
 
 	async createInstance(options: Server): Promise<Server> {
 		try {
-			const port = await this.getFreePort();
-			options.port = port;
-			options.ip = this.provider.metadata.kubeIp;
-			options.tvPort = port + 1;
+			let data;
 
-			const data = {
-				...options.toJSON(),
-				id: options.id,
-				image: this.provider.metadata.image,
-				hostname: this.provider.metadata.kubeHostname,
-				tv: {
-					enabled: true,
-					port: port + 1,
-					name: config.instance.tv_name
-				}
+			const port = await this.getFreePort();
+			options.ip = this.provider.metadata.kubeIp;
+			options.port = port
+
+			switch (options.game) {
+				case GameEnum.TF2_COMP:
+					options.tvPort = port + 1
+					data = Tf2Chart.getDataObject(options, {
+						tvEnable: true,
+						image: this.provider.metadata.image,
+						hostname: this.provider.metadata.kubeHostname
+					}) as Tf2Options
+					break
+				case GameEnum.VALHEIM:
+					data = ValheimChart.getDataObject(options, {
+						port: options.port,
+						image: this.provider.metadata.image,
+						hostname: this.provider.metadata.kubeHostname
+					}) as ValheimOptions
+					break
+			}
+
+			if (options.game === "tf2-comp") {
+				data.tv.enabled  = true
+				data.tv.port = data.port + 1
+				data.tv.name = "QixTV"
 			}
 
 			this.logger.debug(`Assigned address for id ${options.id} ${this.provider.metadata.kubeIp}:${port}`);
-	
-			const chart = ServerChart.render(data);
-			await this.kube.apis.app.v1
-				.namespaces(this.namespace).deployments.post({ body: yaml.load(chart) });
+
+			if (options.game === GameEnum.TF2_COMP) {
+				const chart = Tf2Chart.renderDeployment(data);
+				await this.kube.apis.app.v1
+					.namespaces(this.namespace).deployments.post({ body: yaml.load(chart) });
+			} else if (options.game === GameEnum.VALHEIM) {
+				const chart = ValheimChart.renderDeployment(data);
+				await this.kube.apis.app.v1
+					.namespaces(this.namespace).deployments.post({ body: yaml.load(chart) });
+			}
 
 			return options;
 		} catch (error) {
@@ -100,7 +120,7 @@ export class KubernetesHandler extends Handler {
 	/**
 	 * Get a random port
 	 */
-	getRandomPort() {
+	getRandomPort(): number {
 		return ((Math.floor(((Math.random() * (
 			this.provider.metadata.kubePorts.max - this.provider.metadata.kubePorts.min) + this.provider.metadata.kubePorts.min)) / 2))* 2);
 	}
