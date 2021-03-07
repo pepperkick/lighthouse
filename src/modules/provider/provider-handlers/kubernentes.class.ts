@@ -1,32 +1,40 @@
-import { Handler, InstanceOptions } from "../handler.class";
+import { Handler } from "../handler.class";
 import { Provider } from "../provider.model";
 import * as yaml from "js-yaml";
 import * as ApiClient from 'kubernetes-client';
-import { BookingChart } from '../../booking/booking.chart';
+import { ServerChart } from '../../servers/server.chart';
 import * as config from "../../../../config.json"
-import { BookingService } from "src/modules/booking/booking.service";
+import { Game } from '../../games/game.model';
+import { Server } from '../../servers/server.model';
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { KubeConfig } = require('kubernetes-client')
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const Request = require('kubernetes-client/backends/request')
 const kubes = {};
+
+export interface KubeData {
+	inUsePorts: number[]
+}
 
 export class KubernetesHandler extends Handler {	
 	kube: ApiClient.ApiRoot;
 	namespace: string
+	private data: KubeData;
 
-	constructor(
-		provider: Provider,
-		bookingService: BookingService
-	) {
-		super(provider, bookingService);
+	constructor(provider: Provider, game: Game, data: KubeData) {
+		super(provider);
 
-		this.namespace = provider.metadata.namespace;
+		provider.metadata = { ...provider.metadata, ...game.data.providerOverrides.kubernetes };
+
+		this.data = data;
+		this.namespace = provider.metadata.kubeNamespace;
 
 		if (kubes[provider._id]) 
 			this.kube = kubes[provider._id];
 		else {
 			const kubeconfig = new KubeConfig()
-			kubeconfig.loadFromString(provider.metadata.kubeconfig)
+			kubeconfig.loadFromString(provider.metadata.kubeConfig)
 			const backend = new Request({ kubeconfig })
 			const kube = new ApiClient.Client1_13({ backend, version: '1.13' });
 	
@@ -36,48 +44,64 @@ export class KubernetesHandler extends Handler {
 		}
 	}
 
-	async createInstance(options: InstanceOptions) {
+	async createInstance(options: Server): Promise<Server> {
 		try {
-			const port = options.port || await this.getFreePort();
+			const port = await this.getFreePort();
+			options.port = port;
+			options.ip = this.provider.metadata.kubeIp;
+			options.tvPort = port + 1;
+
 			const data = {
+				...options.toJSON(),
 				id: options.id,
-				token: options.token, 
-				image: options.image || this.provider.metadata.image,
-				hostname: this.provider.metadata.hostname,
-				servername: options.servername || config.instance.hostname,
-				ip: this.provider.metadata.ip, port, 
-				password: options.password, 
-				rconPassword: options.rconPassword, 
-				tv: { port: port + 1, name: config.instance.tv_name },
-				provider: { id: "", hostname: "", autoClose: { time: 905, min: 2 } },
-				selectors: {}
+				image: this.provider.metadata.image,
+				hostname: this.provider.metadata.kubeHostname,
+				tv: {
+					enabled: true,
+					port: port + 1,
+					name: config.instance.tv_name
+				}
 			}
-		
-			this.logger.debug(`Assigned address for id ${options.id} ${this.provider.metadata.ip}:${port}`);
+
+			this.logger.debug(`Assigned address for id ${options.id} ${this.provider.metadata.kubeIp}:${port}`);
 	
-			const chart = BookingChart.render(data);
+			const chart = ServerChart.render(data);
 			await this.kube.apis.app.v1
 				.namespaces(this.namespace).deployments.post({ body: yaml.load(chart) });
-				
-			data.provider = {
-				id: this.provider.id,
-				hostname: this.provider.metadata.hostname,
-				autoClose: this.provider.metadata.autoClose
-			}
-			data.selectors = this.provider.selectors;
-	
-			return data;
+
+			return options;
 		} catch (error) {
 			this.logger.error("Failed to create kubernetes instance", error);
 		}
 	}
 
-	async destroyInstance(id: string) {		
+	async destroyInstance(server: Server): Promise<void> {
 		try {
 			await this.kube.apis.app.v1
-				.namespaces(this.namespace).deployments(`tf2-${id}`).delete();
+				.namespaces(this.namespace).deployments(`tf2-${server._id}`).delete();
 		} catch (error) {
 			this.logger.error("Failed to delete kubernetes instance", error);
 		}
+	}
+
+	/**
+	 * Get free server game port
+	 */
+	async getFreePort(): Promise<number> {
+		const inUsePorts = this.data.inUsePorts;
+		const port = this.getRandomPort();
+
+		if (inUsePorts.includes(port))
+			return this.getFreePort();
+
+		return port;
+	}
+
+	/**
+	 * Get a random port
+	 */
+	getRandomPort() {
+		return ((Math.floor(((Math.random() * (
+			this.provider.metadata.kubePorts.max - this.provider.metadata.kubePorts.min) + this.provider.metadata.kubePorts.min)) / 2))* 2);
 	}
 }

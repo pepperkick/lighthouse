@@ -11,21 +11,21 @@ export enum ProviderType {
 }
 
 @Schema()
-export class Provider extends Document {  
+export class Provider extends Document {
+	@Prop({ type: String })
+	_id: string
+
 	@Prop({ required: true, type: String })
 	type: ProviderType
 
 	@Prop({ required: true, type: Number })
 	limit: number
 
+	@Prop({ required: true, type: String })
+	region: string
+
 	@Prop({ required: true, type: Number })
 	priority: number
-
-	@Prop({ required: true, type: String })
-	name: string
-
-	@Prop({ required: true, type: Object })
-	selectors: object
 
 	@Prop({ type: Object })
 	metadata: {
@@ -38,18 +38,18 @@ export class Provider extends Document {
 		}
 
 		// Kubernetes
-		kubeconfig?: string
-		ports?: { min: number, max: number }
-		ip?: string
-		hostname?: string
-		namespace?: string
+		kubeConfig?: string
+		kubePorts?: { min: number, max: number }
+		kubeIp?: string
+		kubeHostname?: string
+		kubeNamespace?: string
 
 		// Google Cloud
-		gcloudconfig?: string
-		region?: string
-		zone?: string
-		vmImage?: string
-		machineType?: string
+		gcpConfig?: string
+		gcpRegion?: string
+		gcpZone?: string
+		gcpVmImage?: string
+		gcpMachineType?: string
 		
 		// Azure
 		azureTenantId?: string
@@ -76,4 +76,4 @@ export class Provider extends Document {
 	}
 }
 
-export const ProviderSchema = SchemaFactory.createForClass(Provider); 
+export const ProviderSchema = SchemaFactory.createForClass(Provider);

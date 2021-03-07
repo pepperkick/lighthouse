@@ -1,13 +1,13 @@
-
-import { BookingService } from "src/modules/booking/booking.service";
-import { Handler, InstanceOptions } from "../handler.class";
+import { Handler } from "../handler.class";
 import { Provider } from "../provider.model";
 import * as config from "../../../../config.json";
 import * as sleep from "await-sleep";
-import { BookingChart } from "src/modules/booking/booking.chart";
+import { ServerChart } from "src/modules/servers/server.chart";
 import { renderString } from "src/string.util";
 import { createApiClient } from 'dots-wrapper';
 import { query } from "gamedig";
+import { Server } from '../../servers/server.model';
+import { Game } from '../../games/game.model';
 
 const STARTUP_SCRIPT = 
 `#!/bin/bash
@@ -21,34 +21,27 @@ IP=$(curl -s https://icanhazip.com)
 docker run -d --network host {{ image }} {{ args }} +ip "$IP"`
 
 export class DigitalOceanHandler extends Handler {
-	constructor(
-		provider: Provider,
-		bookingService: BookingService
-	) {		
-		super(provider, bookingService);
+	constructor(provider: Provider, game: Game) {
+		super(provider);
+
+		provider.metadata = { ...provider.metadata, ...game.data.providerOverrides.digital_ocean };
 	}
 	
-	async createInstance(options: InstanceOptions) {
+	async createInstance(options: Server): Promise<Server> {
+		options.port = 27015;
+		options.tvPort = 27020;
+
 		const data = {
-			id: options.id,
-			token: options.token, 
-			image: options.image || this.provider.metadata.image,
-			servername: options.servername || config.instance.hostname,
-			ip: null, port: 27015, 
-			password: options.password, 
-			rconPassword: options.rconPassword, 
-			tv: { port: 27020, name: config.instance.tv_name },
-			provider: { 
-				id: this.provider.id,
-				autoClose: this.provider.metadata.autoClose || { time: 905, min: 1 }
-			},
-			selectors: this.provider.selectors
+			...options.toJSON(),
+			id: options._id,
+			image: this.provider.metadata.image,
+			tv: { enabled: true, port: 27020, name: config.instance.tv_name }
 		}
 
-		const args = BookingChart.getArgs(data);
+		const args = ServerChart.getArgs(data);
 		const script = renderString(STARTUP_SCRIPT, {
-			id: options.id,
-			image: options.image || this.provider.metadata.image,
+			id: data.id,
+			image: data.image,
 			args
 		});
 		
@@ -74,12 +67,14 @@ export class DigitalOceanHandler extends Handler {
 				if (ip) {
 					this.logger.debug(`Assigned Digital Ocean IP ${ip}`);
 					data.ip = ip
+					options.ip = ip;
+					await options.save();
 					break;
 				}
 
 				await sleep(2000);
-				if (retry++ === 500) {
-					this.destroyInstance(data.id);
+				if (retry++ === 150) {
+					await this.destroyInstance(options);
 					throw new Error("Timeout waiting for the droplet instance");
 				}
 			}
@@ -97,27 +92,27 @@ export class DigitalOceanHandler extends Handler {
 					this.logger.debug(`No response from server ${data.id} (${data.ip}:${data.port})`);
 				}
 
-				await sleep(2000);
-				if (retry++ === 500) {
-					this.destroyInstance(data.id);
+				await sleep(10000);
+				if (retry++ === 60) {
+					await this.destroyInstance(options);
 					throw new Error("Timeout waiting for the game instance");
 				}
 			}
 
-			return data;
+			return options;
 		} catch (error) {
 			this.logger.error("Failed to create digital ocean instance", error);
 			throw error;
 		}
 	}
 
-	async destroyInstance(id: string) {
+	async destroyInstance(server: Server): Promise<void> {
 		try {	
 			const client = createApiClient({
 				token: this.provider.metadata.digitalOceanToken
 			});
 			await client.droplet.deleteDropletsByTag({
-				tag_name: `lighthouse-${id}`
+				tag_name: `lighthouse-${server.id}`
 			});
 		} catch (error) {
 			this.logger.error("Failed to delete digital ocean instance", error);

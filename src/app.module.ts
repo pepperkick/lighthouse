@@ -1,20 +1,14 @@
 import { Module } from '@nestjs/common';
+import { ApiModule } from './modules/api/api.module';
+import { ServersModule } from './modules/servers/servers.module';
 import { MongooseModule } from '@nestjs/mongoose';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { BookingModule } from './modules/booking/booking.module';
-import * as config from 'config.json'
-import { GSTokenModule } from './modules/gstoken/gstoken.module';
-import { ProviderModule } from './modules/provider/provider.module';
+import * as config from "../config.json"
 
 @Module({
-	imports: [ 
-		BookingModule,
-		GSTokenModule,
-		ProviderModule,
+	imports: [
+		ApiModule,
+		ServersModule,
 		MongooseModule.forRoot(config.mongodbUri)
-	],
-	controllers: [ AppController ],
-	providers: [ AppService ],
+	]
 })
 export class AppModule {}
