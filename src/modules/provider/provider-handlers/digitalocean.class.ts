@@ -54,13 +54,20 @@ export class DigitalOceanHandler extends Handler {
 				break
 		}
 
-		const script = renderString(STARTUP_SCRIPT, {
+		const args_options = {
 			id: data.id,
 			image: data.image,
-			git_repo: options.data.git_repository,
-			git_key: options.data.git_deploy_key,
+			git_repo: undefined,
+			git_key: undefined,
 			args
-		});
+		}
+
+		if (options.data?.git_repository) {
+			args_options.git_repo = options.data.git_repository
+			args_options.git_key = options.data.git_deploy_key
+		}
+
+		const script = renderString(STARTUP_SCRIPT, args_options);
 		
 		try {
 			const metadata = this.provider.metadata;		
