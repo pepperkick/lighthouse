@@ -74,7 +74,6 @@ export class VultrHandler extends Handler {
 			const script_id = script_info.SCRIPTID;
 
 			if (!script_info.SCRIPTID) {
-				await this.destroyInstance(options);
 				throw new Error("Failed to create script");
 			}
 
@@ -89,7 +88,6 @@ export class VultrHandler extends Handler {
 			});
 
 			if (!server.SUBID) {
-				await this.destroyInstance(options);
 				throw new Error("Failed to start server");
 			}
 
@@ -104,7 +102,6 @@ export class VultrHandler extends Handler {
 				await sleep(5000);
 
 				if (retry++ === 60) {
-					await this.destroyInstance(options);
 					throw new Error("Failed to start server");
 				}
 			}		
@@ -117,47 +114,35 @@ export class VultrHandler extends Handler {
 			options.ip = info.main_ip;
 			await options.save();
 
+			let query_options;
 			if (options.game === GameEnum.TF2_COMP) {
-				let server_query;
-				retry = 0;
-				while (server_query === undefined) {
-					try {
-						server_query = await query({
-							host: data.ip,
-							port: data.port,
-							type: "tf2"
-						});
-					}	catch (error) {
-						this.logger.debug(`No response from tf2-comp server ${data.id} (${data.ip}:${data.port})`);
-					}
-
-					await sleep(10000);
-					if (retry++ === 60) {
-						await this.destroyInstance(options);
-						throw new Error("Timeout waiting for the game instance");
-					}
+				query_options = {
+					host: data.ip,
+					port: data.port,
+					type: "tf2"
 				}
 			} else if (options.game === GameEnum.VALHEIM) {
-				let server_query;
-				retry = 0;
-				while (server_query === undefined) {
-					try {
-						server_query = await query({
-							host: data.ip,
-							port: data.port,
-							// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-							// @ts-ignore
-							type: "valheim"
-						});
-					}	catch (error) {
-						this.logger.debug(`No response from valheim server ${data.id} (${data.ip}:${data.port})`);
-					}
+				query_options = {
+					host: data.ip,
+					port: data.port,
+					// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+					// @ts-ignore
+					type: "valheim"
+				}
+			}
 
-					await sleep(10000);
-					if (retry++ === 60) {
-						await this.destroyInstance(options);
-						throw new Error("Timeout waiting for the game instance");
-					}
+			let server_query;
+			retry = 0;
+			while (server_query === undefined) {
+				try {
+					server_query = await query(query_options);
+				}	catch (error) {
+					this.logger.debug(`No response from ${options.game} server ${data.id} (${data.ip}:${data.port})`);
+				}
+
+				await sleep(10000);
+				if (retry++ === 60) {
+					throw new Error("Timeout waiting for the game instance");
 				}
 			}
 

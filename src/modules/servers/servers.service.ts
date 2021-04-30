@@ -14,9 +14,15 @@ import { GamesService } from '../games/games.service';
 import { ProviderType } from '../provider/provider.model';
 import { KubeData } from '../provider/provider-handlers/kubernentes.class';
 import { query } from 'gamedig';
-import * as crypto from 'crypto';
-import axios from "axios";
 import { Game } from '../../objects/game.enum';
+import { renderString } from '../../string.util';
+import axios from "axios";
+import * as crypto from 'crypto';
+import * as ApiClient from 'kubernetes-client';
+import * as config from "../../../config.json"
+import * as fs from "fs";
+import * as path from "path";
+import * as yaml from 'js-yaml';
 
 export interface ServerRequestOptions {
   // Game to use while deploying
@@ -49,7 +55,7 @@ export interface ServerRequestOptions {
   } & { any }
 }
 
-const SERVER_ACTIVE_STATUS_CONDITION = [
+export const SERVER_ACTIVE_STATUS_CONDITION = [
   { status: ServerStatus.INIT },
   { status: ServerStatus.ALLOCATING },
   { status: ServerStatus.WAITING },
@@ -59,14 +65,25 @@ const SERVER_ACTIVE_STATUS_CONDITION = [
   { status: ServerStatus.DEALLOCATING }
 ]
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { KubeConfig } = require('kubernetes-client')
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const Request = require('kubernetes-client/backends/request')
+
 export class ServersService {
   private readonly logger = new Logger(ServersService.name);
+  private readonly kube: ApiClient.ApiRoot;
 
   constructor(
     @InjectModel(Server.name) private repository: Model<Server>,
     private readonly providerService: ProviderService,
     private readonly gameService: GamesService
   ) {
+    const kubeconfig = new KubeConfig()
+    kubeconfig.loadFromString(config.kube_config)
+    const backend = new Request({ kubeconfig })
+    this.kube = new ApiClient.Client1_13({ backend, version: '1.13' });
+
     setInterval(async () => {
       await this.monitor();
     }, 30 * 1000)
@@ -75,10 +92,30 @@ export class ServersService {
   /**
    * Get server by id
    *
+   * @param id - Server ID
+   */
+  async getById(id: string): Promise<Server> {
+    let server;
+
+    try {
+      server = await this.repository.findById(id);
+    } catch (exception) {
+      throw new NotFoundException();
+    }
+
+    if (!server)
+      throw new NotFoundException();
+
+    return server;
+  }
+
+  /**
+   * Get server by id from specific client
+   *
    * @param client
    * @param id - Server ID
    */
-  async getById(client: Client, id: string): Promise<Server> {
+  async getByIdForClient(client: Client, id: string): Promise<Server> {
     let server;
 
     try {
@@ -112,6 +149,17 @@ export class ServersService {
     return this.repository.find({ $or: SERVER_ACTIVE_STATUS_CONDITION });
   }
 
+
+  /**
+   * Get all active servers for a specific provider
+   *
+   * @param providerId
+   */
+  async getActiveServersForProvider(providerId: string): Promise<Server[]> {
+    return this.repository.find(
+      { provider: providerId, $or: SERVER_ACTIVE_STATUS_CONDITION});
+  }
+
   /**
    * Get all servers
    *
@@ -120,6 +168,7 @@ export class ServersService {
   async getAllServersByClient(client: Client): Promise<Server[]> {
     return this.repository.find({ client: client.id }).limit(50);
   }
+
 
   /**
    * Get all servers
@@ -203,7 +252,7 @@ export class ServersService {
 
     // Process the newly created request
     setTimeout(() => {
-      this.processRequest(server)
+      this.createJob(server, "create")
     }, 100);
 
     return server;
@@ -234,8 +283,39 @@ export class ServersService {
 
     // Process the close request
     setTimeout(() => {
-      this.processRequest(server)
+      this.createJob(server, "destroy")
     }, 100);
+  }
+
+
+  /**
+   * Create a kubernetes job that will process the request
+   *
+   * @param server
+   * @param action
+   */
+  async createJob(server: Server, action: string): Promise<void> {
+    try {
+      const contents = renderString(
+        fs.readFileSync(
+          path.resolve(__dirname + '/../../../assets/provider_job.yaml')
+        ).toString(), {
+          id: server._id,
+          action,
+          label: config.label,
+          config_name: process.env.LIGHTHOUSE_PROVIDER_CONFIG_NAME,
+          image: process.env.LIGHTHOUSE_PROVIDER_IMAGE
+        });
+
+      await this.kube.apis.batch.v1
+        .namespace(process.env.LIGHTHOUSE_PROVIDER_NAMESPACE)
+        .jobs.post({ body: yaml.load(contents) });
+
+      this.logger.log(`Created job for action ${action} for server ${server._id}`);
+    } catch (exception) {
+      this.logger.error(`Failed to create job for handling the provider request ${exception}`, exception.stack);
+      await this.updateStatusAndNotify(server, ServerStatus.FAILED);
+    }
   }
 
   /**
@@ -350,7 +430,7 @@ export class ServersService {
 
         // Process the close request
         setTimeout(() => {
-          this.processRequest(server)
+          this.createJob(server, "destroy")
         }, 100);
       }
     }

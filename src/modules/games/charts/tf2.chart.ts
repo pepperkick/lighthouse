@@ -86,8 +86,7 @@ export class Tf2Chart {
 		const app = "tf2"
 		return renderString(
 			fs.readFileSync(
-				path.resolve(__dirname + '/../../../../assets/deployment.yaml'
-				)
+				path.resolve(__dirname + '/../../../../assets/deployment.yaml')
 			).toString(), {
 			label: APP_LABEL,
 			app,

@@ -79,15 +79,15 @@ export class KubernetesHandler extends Handler {
 
 			this.logger.debug(`Assigned address for id ${options.id} ${this.provider.metadata.kubeIp}:${port}`);
 
+			let chart;
 			if (options.game === GameEnum.TF2_COMP) {
-				const chart = Tf2Chart.renderDeployment(data);
-				await this.kube.apis.app.v1
-					.namespaces(this.namespace).deployments.post({ body: yaml.load(chart) });
+				chart = Tf2Chart.renderDeployment(data);
 			} else if (options.game === GameEnum.VALHEIM) {
-				const chart = ValheimChart.renderDeployment(data);
-				await this.kube.apis.app.v1
-					.namespaces(this.namespace).deployments.post({ body: yaml.load(chart) });
+				chart = ValheimChart.renderDeployment(data);
 			}
+
+			await this.kube.apis.app.v1
+				.namespaces(this.namespace).deployments.post({ body: yaml.load(chart) });
 
 			return options;
 		} catch (error) {
