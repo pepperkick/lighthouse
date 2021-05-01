@@ -5,5 +5,9 @@
     "tv_name": ""
   },
   "label": "",
-  "kube_config": ""
+  "kube_config": "",
+  "monitoring": {
+    "enabled": true,
+    "interval": 30
+  }
 }

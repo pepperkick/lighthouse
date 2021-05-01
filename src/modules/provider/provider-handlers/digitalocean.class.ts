@@ -68,6 +68,7 @@ export class DigitalOceanHandler extends Handler {
 		}
 
 		const script = renderString(STARTUP_SCRIPT, args_options);
+		this.logger.debug(`Script: ${script}`)
 		
 		try {
 			const metadata = this.provider.metadata;		
@@ -136,7 +137,7 @@ export class DigitalOceanHandler extends Handler {
 
 			return options;
 		} catch (error) {
-			this.logger.error("Failed to create digital ocean instance", error);
+			this.logger.error(`Failed to create digital ocean instance`, error);
 			await this.destroyInstance(options);
 			throw error;
 		}
@@ -151,7 +152,7 @@ export class DigitalOceanHandler extends Handler {
 				tag_name: `lighthouse-${server.id}`
 			});
 		} catch (error) {
-			this.logger.error("Failed to delete digital ocean instance", error);
+			this.logger.error(`Failed to destroy digital ocean instance`, error);
 			throw error;
 		}
 	}

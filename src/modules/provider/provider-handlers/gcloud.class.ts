@@ -81,6 +81,7 @@ export class GCloudHandler extends Handler {
 			image: data.image,
 			args
 		})
+		this.logger.debug(`Script: ${script}`)
 
 		const playbook = renderString(CREATE_PLAYBOOK, {
 			app,
@@ -109,7 +110,7 @@ export class GCloudHandler extends Handler {
 			options.ip = ip;
 			await options.save();
 		}	catch (error) {
-			this.logger.error("Failed to create instance", error);
+			this.logger.error(`Failed to create gcloud instance`, error);
 			throw error;
 		}	
 
@@ -145,7 +146,7 @@ export class GCloudHandler extends Handler {
 			const result = await command.exec();
 			this.logger.log(result);
 		} catch (error) {
-			this.logger.error("Failed to destroy instance", error);
+			this.logger.error(`Failed to destroy gcloud instance`, error);
 			throw error;			
 		}
 	}

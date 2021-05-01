@@ -8,6 +8,7 @@ export enum ProviderType {
 	Azure = "AZURE",
 	DigitalOcean = "DIGITAL_OCEAN",
 	Vultr = "VULTR",
+	BinaryLane = "BINARYLANE"
 }
 
 @Schema()
@@ -73,6 +74,14 @@ export class Provider extends Document {
 		vultrApiKey?: string
 		vultrPlanId?: number
 		vultrLocationId?: number
+
+		// BinaryLane
+		binarylaneApiKey?: string
+		binarylaneMachineSize?: string
+		binarylaneMachineImage?: string
+		binarylaneRegion?: string
+		binarylaneImageInstance?: string
+		binarylaneSSHKey?: string
 	}
 }
 

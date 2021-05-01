@@ -47,6 +47,7 @@ export class AzureHandler extends Handler {
 			image: data.image,
 			args
 		});
+		this.logger.debug(`Script: ${script}`)
 		
 		try {
 			const metadata = this.provider.metadata;	
@@ -66,7 +67,7 @@ export class AzureHandler extends Handler {
 			options.ip = ip_str;
 			await options.save();
 		} catch (error) {
-			this.logger.error("Failed to create azure instance", error);
+			this.logger.error(`Failed to create azure instance`, error);
 			throw error;
 		}
 
@@ -86,7 +87,7 @@ export class AzureHandler extends Handler {
 				return;
 			}
 
-			this.logger.error("Failed to delete azure instance", error);
+			this.logger.error(`Failed to destroy azure instance`, error);
 			throw error;
 		}
 	}

@@ -15,8 +15,10 @@ ufw allow 2459/tcp
 
 docker run -d --network host -e GIT_REPO={{ git_repo }} -e GIT_KEY="{{ git_key }}" {{ image }} bash -c '/root/res/start.sh {{ args }}'`
 
-
 export const VULTR_STARTUP_SCRIPT = DIGITAL_OCEAN_STARTUP_SCRIPT
+
+export const BINARYLANE_STARTUP_SCRIPT =
+`docker run -d --network host {{ image }} {{ args }} +ip "$IP"`
 
 export const GCP_STARTUP_SCRIPT =
 `           #! /bin/bash

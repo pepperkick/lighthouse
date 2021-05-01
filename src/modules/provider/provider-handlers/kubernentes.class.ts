@@ -100,7 +100,7 @@ export class KubernetesHandler extends Handler {
 			await this.kube.apis.app.v1
 				.namespaces(this.namespace).deployments(`tf2-${server._id}`).delete();
 		} catch (error) {
-			this.logger.error("Failed to delete kubernetes instance", error);
+			this.logger.error(`Failed to destroy kubernetes instance`, error);
 		}
 	}
 
