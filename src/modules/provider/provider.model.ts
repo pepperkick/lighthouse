@@ -69,6 +69,7 @@ export class Provider extends Document {
 		digitalOceanMachineType?: string
 		digitalOceanMachineImage?: string
 		digitalOceanSSHKeyId?: number
+		digitalOceanImageName?: string
 
 		// Vultr
 		vultrApiKey?: string

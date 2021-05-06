@@ -1,7 +1,6 @@
 import { Handler } from "../handler.class";
 import { Provider } from "../provider.model";
 import * as exec from "await-exec";
-import { BookingOptions } from "src/modules/games/charts/common.chart";
 import { renderString } from "src/string.util";
 import { Server } from '../../servers/server.model';
 import { Game } from '../../games/game.model';

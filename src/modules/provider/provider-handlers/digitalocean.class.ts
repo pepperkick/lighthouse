@@ -1,7 +1,6 @@
 import { Handler } from '../handler.class';
 import { Provider } from '../provider.model';
 import * as sleep from 'await-sleep';
-import { BookingOptions } from 'src/modules/games/charts/common.chart';
 import { renderString } from 'src/string.util';
 import { createApiClient } from 'dots-wrapper';
 import { query } from 'gamedig';
@@ -71,19 +70,36 @@ export class DigitalOceanHandler extends Handler {
 		this.logger.debug(`Script: ${script}`)
 		
 		try {
-			const metadata = this.provider.metadata;		
+			let image;
+			const metadata = this.provider.metadata;
 			const client = createApiClient({
 				token: this.provider.metadata.digitalOceanToken
 			});
+			const { data: { snapshots } } = await client.snapshot.listSnapshots({});
+
+			for (const snapshot of snapshots) {
+				if (snapshot.name === metadata.digitalOceanImageName) {
+					image = snapshot.id;
+				}
+			}
+
+			if (!image) {
+				throw new Error(`Could not find snapshot with name "${metadata.digitalOceanImageName}"`);
+			}
+
+			this.logger.log(`Found image id ${image}`)
+
 			const { data: { droplet } } = await client.droplet.createDroplet({
 				name: `lighthouse-${data.id}`,
 				region: metadata.digitalOceanRegion,
 				size: metadata.digitalOceanMachineType,
-				image: metadata.digitalOceanMachineImage,
+				image,
 				tags: [ `lighthouse`, `lighthouse-${data.id}` ],
 				user_data: script,
 				ssh_keys: [ metadata.digitalOceanSSHKeyId ]
 			});
+
+			this.logger.debug(`Droplet: ${JSON.stringify(droplet)}`)
 
 			let retry = 0;
 			while (true) {		
