@@ -1,0 +1,46 @@
+kind: Job
+apiVersion: batch/v1
+metadata:
+  name: 'lighthouse-provider-{{ id }}-{{ action }}'
+  labels:
+    {{ label }}/id: "{{ id }}"
+    {{ label }}/action: "{{ action }}"
+spec:
+  parallelism: 1
+  completions: 1
+  backoffLimit: 1
+  template:
+    metadata:
+      name: 'lighthouse-provider-{{ id }}-{{ action }}'
+      labels:
+        {{ label }}/id: "{{ id }}"
+        {{ label }}/action: "{{ action }}"
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        {{ label }}/node-role: provider
+      volumes:
+        - name: config-volume
+          configMap:
+            name: {{ config_name }}
+            defaultMode: 420
+      containers:
+      - name: lighthouse-provider
+        image: '{{ image }}'
+        command:
+          - /bin/bash
+        env:
+          - name: LIGHTHOUSE_OPERATION_MODE
+            value: "provider"
+          - name: LIGHTHOUSE_SERVER_ID
+            value: "{{ id }}"
+        args:
+          - '-c'
+          - >-
+            cp /etc/config/config.json ./dist; if [ -f
+            "/etc/config/kubeconfig" ]; then export
+            KUBECONFIG=/etc/config/kubeconfig; fi; npm run-script start:prod
+        volumeMounts:
+          - name: config-volume
+            mountPath: /etc/config/
+        imagePullPolicy: IfNotPresent

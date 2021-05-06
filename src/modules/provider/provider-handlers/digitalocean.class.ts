@@ -98,58 +98,46 @@ export class DigitalOceanHandler extends Handler {
 
 				await sleep(2000);
 				if (retry++ === 150) {
-					await this.destroyInstance(options);
 					throw new Error("Timeout waiting for the droplet instance");
 				}
 			}
 
+			let query_options;
 			if (options.game === GameEnum.TF2_COMP) {
-				let server_query;
-				retry = 0;
-				while (server_query === undefined) {
-					try {
-						server_query = await query({
-							host: data.ip,
-							port: data.port,
-							type: "tf2"
-						});
-					}	catch (error) {
-						this.logger.debug(`No response from tf2-comp server ${data.id} (${data.ip}:${data.port}) (${retry} / 60)`);
-					}
-
-					await sleep(10000);
-					if (retry++ === 60) {
-						await this.destroyInstance(options);
-						throw new Error("Timeout waiting for the game instance");
-					}
+				query_options = {
+					host: data.ip,
+					port: data.port,
+					type: "tf2"
 				}
 			} else if (options.game === GameEnum.VALHEIM) {
-				let server_query;
-				retry = 0;
-				while (server_query === undefined) {
-					try {
-						server_query = await query({
-							host: data.ip,
-							port: data.port,
-							// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-							// @ts-ignore
-							type: "valheim"
-						});
-					}	catch (error) {
-						this.logger.debug(`No response from valheim server ${data.id} (${data.ip}:${data.port}) (${retry} / 60)`);
-					}
+				query_options = {
+					host: data.ip,
+					port: data.port,
+					// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+					// @ts-ignore
+					type: "valheim"
+				}
+			}
 
-					await sleep(10000);
-					if (retry++ === 60) {
-						await this.destroyInstance(options);
-						throw new Error("Timeout waiting for the game instance");
-					}
+			let server_query;
+			retry = 0;
+			while (server_query === undefined) {
+				try {
+					server_query = await query(query_options);
+				}	catch (error) {
+					this.logger.debug(`No response from ${options.game} server ${data.id} (${data.ip}:${data.port}) (${retry} / 60)`);
+				}
+
+				await sleep(10000);
+				if (retry++ === 60) {
+					throw new Error("Timeout waiting for the game heartbeat");
 				}
 			}
 
 			return options;
 		} catch (error) {
 			this.logger.error("Failed to create digital ocean instance", error);
+			await this.destroyInstance(options);
 			throw error;
 		}
 	}

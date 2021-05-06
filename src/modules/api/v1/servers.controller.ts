@@ -46,7 +46,7 @@ export class ServersController {
   @Get("/:id")
   @UseGuards(ClientGuard)
   async getServer(@Req() request: RequestWithClient, @Param("id") id: string): Promise<Server> {
-    return this.service.getById(request.client, id);
+    return this.service.getByIdForClient(request.client, id);
   }
 
   /**
