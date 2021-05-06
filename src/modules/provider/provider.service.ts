@@ -10,9 +10,7 @@ import { VultrHandler } from './provider-handlers/vultr.class';
 import { Server } from '../servers/server.model';
 import { Game } from '../games/game.model';
 import { Client } from '../clients/client.model';
-import { GameArgsOptions as Tf2Options, Tf2Chart } from '../games/charts/tf2.chart';
-import { GameArgsOptions as ValheimOptions, ValheimChart } from '../games/charts/valheim.chart';
-import { Game as GameEnum } from '../../objects/game.enum';
+import { BinaryLaneHandler } from './provider-handlers/binarylane.class';
 
 @Injectable()
 export class ProviderService {
@@ -81,6 +79,8 @@ export class ProviderService {
 				return new DigitalOceanHandler(provider, game).createInstance(server);
 			case ProviderType.Vultr:
 				return new VultrHandler(provider, game).createInstance(server);
+			case ProviderType.BinaryLane:
+				return new BinaryLaneHandler(provider, game).createInstance(server);
 		}
 	}
 
@@ -104,6 +104,8 @@ export class ProviderService {
 				return new DigitalOceanHandler(provider, game).destroyInstance(server);
 			case ProviderType.Vultr:
 				return new VultrHandler(provider, game).destroyInstance(server);
+			case ProviderType.BinaryLane:
+				return new BinaryLaneHandler(provider, game).destroyInstance(server);
 		}
 	}
 

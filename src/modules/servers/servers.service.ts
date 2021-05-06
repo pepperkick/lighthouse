@@ -84,9 +84,11 @@ export class ServersService {
     const backend = new Request({ kubeconfig })
     this.kube = new ApiClient.Client1_13({ backend, version: '1.13' });
 
-    setInterval(async () => {
-      await this.monitor();
-    }, 30 * 1000)
+    if (process.env.LIGHTHOUSE_OPERATION_MODE === "manager" && config.monitoring.enabled === true) {
+      setInterval(async () => {
+        await this.monitor();
+      }, config.monitoring.interval * 1000)
+    }
   }
 
   /**
@@ -323,13 +325,14 @@ export class ServersService {
    *
    * @param server
    */
-  async processRequest(server: Server): Promise<void> {
+  async processRequest(server: Server): Promise<boolean> {
     if (server.status === ServerStatus.INIT) {
       try {
         await this.initializeServer(server);
       } catch (exception) {
         this.logger.error(`Failed to initialize server ${exception}`, exception.stack);
         await this.updateStatusAndNotify(server, ServerStatus.FAILED);
+        return false;
       }
     } else if (server.status === ServerStatus.CLOSING) {
       try {
@@ -337,8 +340,11 @@ export class ServersService {
       } catch (exception) {
         this.logger.error(`Failed to close server ${exception}`, exception.stack);
         await this.updateStatusAndNotify(server, ServerStatus.FAILED);
+        return false;
       }
     }
+
+    return true;
   }
 
   /**

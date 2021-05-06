@@ -25,7 +25,10 @@ async function bootstrap() {
 
 			const serversService = app.select(ServersModule).get(ServersService);
 			const server = await serversService.getById(LIGHTHOUSE_SERVER_ID);
-			await serversService.processRequest(server);
+
+			if (!await serversService.processRequest(server)) {
+				throw new Error("Failed to process request");
+			}
 
 			await app.close()
 			process.exit(0)

@@ -19,6 +19,7 @@ export class Game extends Document {
       azure: any
       digital_ocean: any
       vultr: any
+      binarylane: any
     }
   }
 }

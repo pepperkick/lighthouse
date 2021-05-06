@@ -3,7 +3,6 @@ import { Provider } from "../provider.model";
 import * as Vultr from "@vultr/vultr-node";
 import { renderString } from "src/string.util";
 import * as sleep from "await-sleep";
-import { BookingOptions } from '../../games/charts/common.chart';
 import { query } from "gamedig";
 import { Game } from '../../games/game.model';
 import { Server } from '../../servers/server.model';
@@ -65,6 +64,7 @@ export class VultrHandler extends Handler {
 			image: data.image,
 			args
 		});
+		this.logger.debug(`Script: ${script}`)
 		
 		try {
 			const script_info = await this.api.startupScript.create({
@@ -149,7 +149,7 @@ export class VultrHandler extends Handler {
 			return options;
 		} catch (error) {
 			await this.destroyInstance(options);
-			this.logger.error("Failed to create server", error);
+			this.logger.error(`Failed to create vultr instance`, error);
 			throw error;
 		}
 	}
