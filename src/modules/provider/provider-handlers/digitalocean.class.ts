@@ -119,38 +119,6 @@ export class DigitalOceanHandler extends Handler {
 				}
 			}
 
-			let query_options;
-			if (options.game === GameEnum.TF2_COMP) {
-				query_options = {
-					host: data.ip,
-					port: data.port,
-					type: "tf2"
-				}
-			} else if (options.game === GameEnum.VALHEIM) {
-				query_options = {
-					host: data.ip,
-					port: data.port,
-					// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-					// @ts-ignore
-					type: "valheim"
-				}
-			}
-
-			let server_query;
-			retry = 0;
-			while (server_query === undefined) {
-				try {
-					server_query = await query(query_options);
-				}	catch (error) {
-					this.logger.debug(`No response from ${options.game} server ${data.id} (${data.ip}:${data.port}) (${retry} / 60)`);
-				}
-
-				await sleep(10000);
-				if (retry++ === 60) {
-					throw new Error("Timeout waiting for the game heartbeat");
-				}
-			}
-
 			return options;
 		} catch (error) {
 			this.logger.error(`Failed to create digital ocean instance`, error);

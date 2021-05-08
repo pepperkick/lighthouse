@@ -1,4 +1,5 @@
 export enum ServerStatus {
+  UNKNOWN = "UNKNOWN",            // Server is in unknown state
   INIT = "INIT",                  // Request for server creation received
   ALLOCATING = "ALLOCATING",      // Allocating resources with tre provider
   WAITING = "WAITING",            // Wait for first heartbeat

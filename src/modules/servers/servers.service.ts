@@ -412,6 +412,7 @@ export class ServersService {
 
     // Check for enough players in active servers
     const activeServers = await this.repository.find({ $or: [
+        { status: ServerStatus.UNKNOWN },
         { status: ServerStatus.IDLE },
         { status: ServerStatus.RUNNING }
       ]
@@ -423,6 +424,7 @@ export class ServersService {
 
     // Check for close times in idle servers
     const idleServers = await this.repository.find({ $or: [
+        { status: ServerStatus.UNKNOWN },
         { status: ServerStatus.IDLE },
         { status: ServerStatus.WAITING }
       ]
@@ -490,6 +492,7 @@ export class ServersService {
       }
 
     } catch (exception) {
+      await this.updateStatusAndNotify(server, ServerStatus.UNKNOWN);
       this.logger.debug(`Failed to query server ${server.id} (${server.ip}:${server.port}) due to ${exception}`);
       await this.setCloseTime(server, server.closePref.idleTime);
     }
