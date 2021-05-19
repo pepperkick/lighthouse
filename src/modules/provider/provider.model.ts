@@ -8,7 +8,8 @@ export enum ProviderType {
 	Azure = "AZURE",
 	DigitalOcean = "DIGITAL_OCEAN",
 	Vultr = "VULTR",
-	BinaryLane = "BINARYLANE"
+	BinaryLane = "BINARYLANE",
+	Linode = "LINODE"
 }
 
 @Schema()
@@ -83,6 +84,14 @@ export class Provider extends Document {
 		binarylaneRegion?: string
 		binarylaneImageInstance?: string
 		binarylaneSSHKey?: string
+
+		// Linode
+		linodeApiKey?: string
+		linodeImageName?: string
+		linodeRegion?: string
+		linodeRootPassword?: string
+		linodeSSHKey?: string[]
+		linodeMachineSize?: string
 	}
 }
 

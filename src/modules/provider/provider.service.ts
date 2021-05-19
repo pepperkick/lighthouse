@@ -11,6 +11,7 @@ import { Server } from '../servers/server.model';
 import { Game } from '../games/game.model';
 import { Client } from '../clients/client.model';
 import { BinaryLaneHandler } from './provider-handlers/binarylane.class';
+import { LinodeHandler } from './provider-handlers/linode.class';
 
 @Injectable()
 export class ProviderService {
@@ -81,6 +82,8 @@ export class ProviderService {
 				return new VultrHandler(provider, game).createInstance(server);
 			case ProviderType.BinaryLane:
 				return new BinaryLaneHandler(provider, game).createInstance(server);
+			case ProviderType.Linode:
+				return new LinodeHandler(provider, game).createInstance(server);
 		}
 	}
 
@@ -106,6 +109,8 @@ export class ProviderService {
 				return new VultrHandler(provider, game).destroyInstance(server);
 			case ProviderType.BinaryLane:
 				return new BinaryLaneHandler(provider, game).destroyInstance(server);
+			case ProviderType.Linode:
+				return new LinodeHandler(provider, game).destroyInstance(server);
 		}
 	}
 

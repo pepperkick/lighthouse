@@ -20,6 +20,7 @@ export class Game extends Document {
       digital_ocean: any
       vultr: any
       binarylane: any
+      linode: any
     }
   }
 }

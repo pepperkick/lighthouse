@@ -3,7 +3,6 @@ import { Provider } from '../provider.model';
 import * as sleep from 'await-sleep';
 import { renderString } from 'src/string.util';
 import { createApiClient } from 'dots-wrapper';
-import { query } from 'gamedig';
 import { Server } from '../../servers/server.model';
 import { Game } from '../../games/game.model';
 import { Game as GameEnum } from '../../../objects/game.enum';
