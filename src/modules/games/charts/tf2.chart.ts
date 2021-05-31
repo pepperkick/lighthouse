@@ -126,7 +126,7 @@ export class Tf2Chart {
 			tvEnable = false,
 			tvPort = 27020,
 			tvName = "QixTV",
-			hostname = "Team Fortress"
+			hostname = "Qixalite Bookable"
 		}
 	): BookingOptions {
 		const data: BookingOptions = {
@@ -146,9 +146,5 @@ export class Tf2Chart {
 		}
 
 		return data
-	}
-
-	static queryServer(ip, port) {
-
 	}
 }

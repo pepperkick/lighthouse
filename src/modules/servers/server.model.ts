@@ -48,7 +48,7 @@ export class Server extends Document {
   data: {
     git_repository?: string
     git_deploy_key?: string
-  } & { any }
+  }
 
   @Prop({ type: Boolean })
   markForClose: boolean

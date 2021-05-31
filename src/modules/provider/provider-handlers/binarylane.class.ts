@@ -133,7 +133,7 @@ export class BinaryLaneHandler extends Handler {
       const imageServer = await this.getServerIdByName(this.provider.metadata.binarylaneImageInstance)
       const backupId = imageServer.backup_ids[0]
       const action = await this.cloneBackupToServer(imageServer.id, serverId, backupId)
-      if (!await this.waitForActionToComplete(imageServer.id, action.id, 600)) {
+      if (!await this.waitForActionToComplete(action.id, 600)) {
         throw new Error("Timeout waiting for the backup restoring to complete");
       }
 
@@ -223,11 +223,11 @@ export class BinaryLaneHandler extends Handler {
     return response.data.action;
   }
 
-  async waitForActionToComplete(serverId: number, actionId: number, retry: number): Promise<any> {
-    this.logger.debug(`Options: serverId(${serverId}) actionId(${actionId}) retry(${retry})`, "waitForActionToComplete")
+  async waitForActionToComplete(actionId: number, retry: number): Promise<any> {
+    this.logger.debug(`Options: actionId(${actionId}) retry(${retry})`, "waitForActionToComplete")
 
     while (retry-- > 0) {
-      const response = await axios.get(`${API_URL}/servers/${serverId}/actions/${actionId}`, {
+      const response = await axios.get(`${API_URL}/actions/${actionId}`, {
         headers: {
           "Authorization": `Bearer ${this.api_token}`
         }
@@ -235,6 +235,7 @@ export class BinaryLaneHandler extends Handler {
 
       this.logger.debug(`Response: ${JSON.stringify(response.data)}`, "waitForActionToComplete")
       const action = response.data.action;
+
       if (action.status === "completed")
         return true;
 
