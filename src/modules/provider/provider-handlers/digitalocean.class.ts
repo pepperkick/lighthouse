@@ -8,8 +8,10 @@ import { Game } from '../../games/game.model';
 import { Game as GameEnum } from '../../../objects/game.enum';
 import { DIGITAL_OCEAN_STARTUP_SCRIPT as TF2_STARTUP_SCRIPT } from '../../../assets/tf2';
 import { DIGITAL_OCEAN_STARTUP_SCRIPT as VALHEIM_STARTUP_SCRIPT } from '../../../assets/valheim';
+import { DIGITAL_OCEAN_STARTUP_SCRIPT as MINECRAFT_STARTUP_SCRIPT } from '../../../assets/minecraft';
 import { GameArgsOptions as Tf2Options, Tf2Chart } from '../../games/charts/tf2.chart';
 import { GameArgsOptions as ValheimOptions, ValheimChart } from '../../games/charts/valheim.chart';
+import { GameArgsOptions as MinecraftOptions, MinecraftChart } from '../../games/charts/minecraft.chart';
 
 export class DigitalOceanHandler extends Handler {
 	constructor(provider: Provider, game: Game) {
@@ -41,6 +43,16 @@ export class DigitalOceanHandler extends Handler {
 				}) as ValheimOptions
 				args = ValheimChart.getArgs(data);
 				break
+			case GameEnum.MINECRAFT:
+				options.port = 25565
+				options.data.rconPort = 25575
+				data = MinecraftChart.getDataObject(options, {
+					port: options.port,
+					rconPort: options.data.rconPort,
+					image: this.provider.metadata.image
+				}) as MinecraftOptions
+				args = MinecraftChart.getArgs(data);
+				break
 		}
 
 		switch (options.game) {
@@ -49,6 +61,9 @@ export class DigitalOceanHandler extends Handler {
 				break
 			case GameEnum.VALHEIM:
 				STARTUP_SCRIPT = VALHEIM_STARTUP_SCRIPT
+				break
+			case GameEnum.MINECRAFT:
+				STARTUP_SCRIPT = MINECRAFT_STARTUP_SCRIPT
 				break
 		}
 

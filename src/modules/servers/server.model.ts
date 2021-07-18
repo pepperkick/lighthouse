@@ -48,6 +48,9 @@ export class Server extends Document {
   data: {
     git_repository?: string
     git_deploy_key?: string
+
+    // For minecraft
+    rconPort?: number
   }
 
   @Prop({ type: Boolean })
