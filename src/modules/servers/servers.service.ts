@@ -45,6 +45,7 @@ export interface ServerRequestOptions {
   closePref?: {
     minPlayers: number
     idleTime: number
+    waitTime: number
   }
 
   // Custom data
@@ -190,6 +191,10 @@ export class ServersService {
 
     this.logger.log(`Received new server request from client '${client.id}' at region '${region}' for game '${game}'`);
 
+    // Check if client can have the required wait timer
+    if (options.closePref && options.closePref.waitTime > client.getWaitTimerLimit())
+      throw new ForbiddenException(`Requested wait time limit is too high`)
+
     // Check if client can have the required close timer
     if (options.closePref && options.closePref.idleTime > client.getCloseTimerLimit())
       throw new ForbiddenException(`Requested close time limit is too high`)
@@ -249,7 +254,11 @@ export class ServersService {
     server.password = options.password;
     server.rconPassword = options.rconPassword;
     server.data = options.data;
-    server.closePref = options.closePref ? options.closePref : { minPlayers: 2, idleTime: 900 }
+    server.closePref = {
+      minPlayers: options.closePref.minPlayers || 2,
+      idleTime: options.closePref.idleTime || 900,
+      waitTime: options.closePref.waitTime || 300
+    }
     await server.save()
 
     // Process the newly created request
@@ -376,7 +385,7 @@ export class ServersService {
 
     const allocatedServer = await this.providerService.createInstance(provider, server, game, data);
     await this.updateStatusAndNotify(server, ServerStatus.WAITING);
-    await this.setCloseTime(server, 300);
+    await this.setCloseTime(server, server.closePref.waitTime);
 
     this.logger.log(`Server created ${allocatedServer.id}, (${allocatedServer.ip}:${allocatedServer.port} ${allocatedServer.password} ${allocatedServer.rconPassword})`);
   }

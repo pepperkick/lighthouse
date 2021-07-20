@@ -63,6 +63,7 @@ export class Server extends Document {
   closePref: {
     minPlayers: number
     idleTime: number
+    waitTime: number
   }
 }
 

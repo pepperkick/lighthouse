@@ -20,6 +20,7 @@ export class Client extends Document {
   access: {
     games: string[],
     close_timer_limit: number,
+    close_wait_limit: number,
     limit: number,
     regions: { [key: string]: RegionAccess },
     providers: string[]
@@ -36,6 +37,7 @@ export class Client extends Document {
   getRegionLimit: (string) => number
   getLimit: () => number
   getCloseTimerLimit: () => number
+  getWaitTimerLimit: () => number
 }
 
 export const ClientSchema = SchemaFactory.createForClass(Client);
@@ -69,4 +71,8 @@ ClientSchema.methods.getLimit = function (): number {
 
 ClientSchema.methods.getCloseTimerLimit = function (): number {
   return this.access.close_timer_limit
+}
+
+ClientSchema.methods.getWaitTimerLimit = function (): number {
+  return this.access.close_wait_limit
 }
