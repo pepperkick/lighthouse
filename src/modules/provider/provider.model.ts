@@ -90,7 +90,8 @@ export class Provider extends Document {
 		linodeImageName?: string
 		linodeRegion?: string
 		linodeRootPassword?: string
-		linodeSSHKey?: string[]
+		linodeSSHKeys?: string[]
+		linodeSSHAccessKey?: string
 		linodeMachineSize?: string
 	}
 }

@@ -1,10 +1,5 @@
 import { Client } from '../clients/client.model';
-import {
-  BadRequestException,
-  ForbiddenException, HttpException,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpException, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Server } from './server.model';
@@ -16,12 +11,12 @@ import { KubeData } from '../provider/provider-handlers/kubernentes.class';
 import { query } from 'gamedig';
 import { Game } from '../../objects/game.enum';
 import { renderString } from '../../string.util';
-import axios from "axios";
+import axios from 'axios';
 import * as crypto from 'crypto';
 import * as ApiClient from 'kubernetes-client';
-import * as config from "../../../config.json"
-import * as fs from "fs";
-import * as path from "path";
+import * as config from '../../../config.json';
+import * as fs from 'fs';
+import * as path from 'path';
 import * as yaml from 'js-yaml';
 
 export interface ServerRequestOptions {
@@ -348,6 +343,8 @@ export class ServersService {
    * @param server
    */
   async processRequest(server: Server): Promise<boolean> {
+    this.logger.log(`Current status of the server ${server._id} is ${server.status}`)
+
     if (server.status === ServerStatus.INIT) {
       try {
         await this.initializeServer(server);
@@ -364,6 +361,10 @@ export class ServersService {
         await this.updateStatusAndNotify(server, ServerStatus.FAILED);
         return false;
       }
+    } else {
+      this.logger.error(`Server (${server._id}) is in wrong state ${server.status} to be processed.`);
+      await this.updateStatusAndNotify(server, ServerStatus.FAILED);
+      return false;
     }
 
     return true;
@@ -505,7 +506,7 @@ export class ServersService {
         type: game.data.queryType
       });
 
-      this.logger.debug(`Pinged ${server.id} [${server.game}] (${server.ip}:${server.port}) server, ${data.players.length} playing`);
+      this.logger.debug(`Pinged ${server.id} [${server.game}] (${server.ip}:${server.port}) server, ${data.players.length} playing, current status ${server.status}`);
 
       if (data.players.length < server.closePref.minPlayers) {
         await this.updateStatusAndNotify(server, ServerStatus.IDLE);

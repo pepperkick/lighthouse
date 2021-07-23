@@ -15,7 +15,7 @@ docker run -d --network host {{ image }} {{ args }} +ip "$IP"`
 export const VULTR_STARTUP_SCRIPT = DIGITAL_OCEAN_STARTUP_SCRIPT
 
 export const BINARYLANE_STARTUP_SCRIPT =
-`docker run -d --network host {{ image }} {{ args }} +ip "$IP"`
+`docker run -d --network host {{ image }} {{ args }}`
 
 export const LINODE_STARTUP_SCRIPT = BINARYLANE_STARTUP_SCRIPT
 

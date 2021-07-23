@@ -28,7 +28,7 @@ export class BinaryLaneHandler extends Handler {
   }
 
   async createInstance(options: Server): Promise<Server> {
-    this.logger.debug(`Options: options(${JSON.stringify(options)})`, "createInstance")
+    this.logger.debug(`Options: options(${JSON.stringify(options, null, 2)})`, "createInstance")
     let STARTUP_SCRIPT = "", data, args;
 
     switch (options.game) {
@@ -87,7 +87,7 @@ export class BinaryLaneHandler extends Handler {
         "image": parseInt(this.provider.metadata.binarylaneMachineImage),
         "region": this.provider.metadata.binarylaneRegion
       }
-      this.logger.debug(`Request body: ${JSON.stringify(body)}`)
+      this.logger.debug(`Request body: ${JSON.stringify(body, null, 2)}`)
       const response = await axios.post(`${API_URL}/servers`, body, {
         headers: {
           "Authorization": `Bearer ${this.api_token}`
@@ -115,8 +115,8 @@ export class BinaryLaneHandler extends Handler {
         });
         const data = res.data
 
-        this.logger.debug(`Response: ${JSON.stringify(data)}`, "waitingForServer")
-        this.logger.debug(`Status: ${JSON.stringify(data.server.status)}`, "waitingForServer")
+        this.logger.debug(`Response: ${JSON.stringify(data, null, 2)}`, "waitingForServer")
+        this.logger.debug(`Status: ${JSON.stringify(data.server.status, null, 2)}`, "waitingForServer")
         if (data.server.status === "active") {
           break;
         }
@@ -196,7 +196,7 @@ export class BinaryLaneHandler extends Handler {
       }
     })
     const data = res.data
-    this.logger.debug(`Response: ${JSON.stringify(data)}`, "getServerIdByName")
+    this.logger.debug(`Response: ${JSON.stringify(data, null, 2)}`, "getServerIdByName")
 
     for (const server of data.servers) {
       if (server.name === name) {
@@ -219,7 +219,7 @@ export class BinaryLaneHandler extends Handler {
       }
     });
 
-    this.logger.debug(`Response: ${JSON.stringify(response.data)}`, "cloneBackupToServer")
+    this.logger.debug(`Response: ${JSON.stringify(response.data, null, 2)}`, "cloneBackupToServer")
     return response.data.action;
   }
 
@@ -233,7 +233,7 @@ export class BinaryLaneHandler extends Handler {
         }
       });
 
-      this.logger.debug(`Response: ${JSON.stringify(response.data)}`, "waitForActionToComplete")
+      this.logger.debug(`Response: ${JSON.stringify(response.data, null, 2)}`, "waitForActionToComplete")
       const action = response.data.action;
 
       if (action.status === "completed")

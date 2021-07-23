@@ -11,6 +11,9 @@ import { LINODE_STARTUP_SCRIPT as TF2_STARTUP_SCRIPT } from '../../../assets/tf2
 import { LINODE_STARTUP_SCRIPT as VALHEIM_STARTUP_SCRIPT } from '../../../assets/valheim';
 import { renderString } from '../../../string.util';
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const SSH2Promise = require('ssh2-promise');
+
 export class LinodeHandler extends Handler {
   constructor(provider: Provider, game: Game) {
     super(provider);
@@ -19,6 +22,7 @@ export class LinodeHandler extends Handler {
   }
 
   async createInstance(options: Server): Promise<Server> {
+    this.logger.debug(`Options: options(${JSON.stringify(options, null, 2)})`, "createInstance")
     let STARTUP_SCRIPT = "", data, args;
 
     switch (options.game) {
@@ -87,28 +91,17 @@ export class LinodeHandler extends Handler {
 
       this.logger.log(`Found image id ${image}`)
 
-      const stackscript = await client.linode.stackscripts.create({
-        description: `Start script for lighthouse-${data.id}`,
-        images: [ "linode/debian10" ],
-        is_public: false,
-        label: `${data.id}`,
-        script
-      })
-
-      this.logger.debug(`StackScript: ${JSON.stringify(stackscript)}`)
-
       const instance = await client.linode.instances.create({
         image,
         label: `${data.id}`,
-        authorized_keys: metadata.linodeSSHKey,
+        authorized_keys: metadata.linodeSSHKeys,
         region: metadata.linodeRegion,
         root_pass: metadata.linodeRootPassword,
         type: metadata.linodeMachineSize,
-        tags: [ `lighthouse`, `lighthouse-${data.id}` ],
-        stackscript_id: stackscript.id
+        tags: [ `lighthouse`, `lighthouse-${data.id}`, options.game ]
       })
 
-      this.logger.debug(`Instance: ${JSON.stringify(instance)}`)
+      this.logger.debug(`Instance: ${JSON.stringify(instance, null, 2)}`)
 
       let retry = 0;
       while (true) {
@@ -128,6 +121,34 @@ export class LinodeHandler extends Handler {
         }
       }
 
+      const sshkey = Buffer.from(metadata.linodeSSHAccessKey, 'base64').toString('ascii');
+
+      retry = 0;
+      while (true) {
+        const ip = options.ip;
+        const ssh = new SSH2Promise({
+          host: ip,
+          username: 'root',
+          privateKey: sshkey,
+          reconnect: false,
+          readyTimeout: 5000
+        });
+
+        try {
+          await ssh.connect();
+          await ssh.exec(script);
+          await ssh.close();
+          break
+        } catch (error) {
+          this.logger.error(`Failed to execute SSH command, Retry ${retry}`, error)
+        }
+
+        await sleep(2000);
+        if (retry++ === 100) {
+          throw new Error("Timeout trying to SSH to linode instance");
+        }
+      }
+
       return options;
     } catch (error) {
       this.logger.error(`Failed to create linode instance`, error);
@@ -137,6 +158,7 @@ export class LinodeHandler extends Handler {
   }
 
   async destroyInstance(server: Server): Promise<void> {
+    this.logger.debug(`Options: server(${server})`, "destroyInstance")
     try {
       const metadata = this.provider.metadata;
       const client = new Linodev4(metadata.linodeApiKey)
