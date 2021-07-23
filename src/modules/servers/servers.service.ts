@@ -307,6 +307,7 @@ export class ServersService {
    */
   async createJob(server: Server, action: string): Promise<void> {
     try {
+      const jobName = `lighthouse-provider-${server._id}-${action}`
       const contents = renderString(
         fs.readFileSync(
           path.resolve(__dirname + '/../../../assets/provider_job.yaml')
@@ -318,11 +319,23 @@ export class ServersService {
           image: process.env.LIGHTHOUSE_PROVIDER_IMAGE
         });
 
-      await this.kube.apis.batch.v1
-        .namespace(process.env.LIGHTHOUSE_PROVIDER_NAMESPACE)
-        .jobs.post({ body: yaml.load(contents) });
+      try {
+        await this.kube.apis.batch.v1
+          .namespace(process.env.LIGHTHOUSE_PROVIDER_NAMESPACE)
+          .job(jobName).get()
 
-      this.logger.log(`Created job for action ${action} for server ${server._id}`);
+        this.logger.log(`Job with name '${jobName}' already exists, skipping creation`);
+      } catch (error) {
+        if (error.statusCode === 404) {
+          await this.kube.apis.batch.v1
+            .namespace(process.env.LIGHTHOUSE_PROVIDER_NAMESPACE)
+            .jobs.post({ body: yaml.load(contents) });
+
+          this.logger.log(`Created job for action ${action} for server ${server._id}`);
+        } else {
+          throw error
+        }
+      }
     } catch (exception) {
       this.logger.error(`Failed to create job for handling the provider request ${exception}`, exception.stack);
       await this.updateStatusAndNotify(server, ServerStatus.FAILED);
@@ -414,7 +427,9 @@ export class ServersService {
    */
   async monitor(): Promise<void> {
     // Check for first heartbeat from waiting servers
-    const waitingServers = await this.repository.find({ status: ServerStatus.WAITING });
+    const waitingServers = await this.repository.find({
+      status: ServerStatus.WAITING
+    });
     for (const server of waitingServers) {
       setTimeout(async () => await this.checkForHeartbeat(server), 100);
     }
@@ -499,7 +514,6 @@ export class ServersService {
         await this.updateStatusAndNotify(server, ServerStatus.RUNNING);
         await this.setCloseTime(server, 0);
       }
-
     } catch (exception) {
       await this.updateStatusAndNotify(server, ServerStatus.UNKNOWN);
       this.logger.debug(`Failed to query server ${server.id} (${server.ip}:${server.port}) due to ${exception}`);
@@ -520,7 +534,7 @@ export class ServersService {
     server.status = status;
 
     if (server.callbackUrl) {
-      this.logger.log(`Notifying URL '${server.callbackUrl}' for status '${server.status}'`);
+      this.logger.log(`Notifying URL '${server.callbackUrl}' for status '${server.status} (${server._id})'`);
 
       try {
         await axios.post(`${server.callbackUrl}?status=${server.status}`, { ...server.toJSON(), ...data })
