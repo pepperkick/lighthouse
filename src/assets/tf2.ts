@@ -9,7 +9,7 @@ ufw allow 27015/tcp
 ufw allow 27020/udp
 ufw allow 27020/tcp
 
-IP=$(curl -s https://icanhazip.com)
+IP=$(curl -s https://ipv4.icanhazip.com)
 docker run -d --network host {{ image }} {{ args }} +ip "$IP"`
 
 export const VULTR_STARTUP_SCRIPT = DIGITAL_OCEAN_STARTUP_SCRIPT
@@ -17,7 +17,9 @@ export const VULTR_STARTUP_SCRIPT = DIGITAL_OCEAN_STARTUP_SCRIPT
 export const BINARYLANE_STARTUP_SCRIPT =
 `docker run -d --network host {{ image }} {{ args }}`
 
-export const LINODE_STARTUP_SCRIPT = BINARYLANE_STARTUP_SCRIPT
+export const LINODE_STARTUP_SCRIPT = `
+IP=$(curl -s https://ipv4.icanhazip.com)
+docker run -d --network host {{ image }} {{ args }} +ip "$IP"`
 
 export const GCP_STARTUP_SCRIPT =
 `           #! /bin/bash
