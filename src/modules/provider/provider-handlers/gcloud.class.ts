@@ -45,8 +45,13 @@ export class GCloudHandler extends Handler {
 
 		switch (options.game) {
 			case GameEnum.TF2_COMP:
+				if (!options.data) {
+					options.data = {}
+				}
 				options.port = 27015
 				options.tvPort = 27020
+				options.data.hatchAddress = ":27017"
+				options.data.hatchPassword = options.rconPassword
 				data = Tf2Chart.getDataObject(options, {
 					port: options.port,
 					tvEnable: true,

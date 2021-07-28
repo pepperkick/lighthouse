@@ -6,6 +6,8 @@ export const DIGITAL_OCEAN_STARTUP_SCRIPT =
 
 ufw allow 27015/udp
 ufw allow 27015/tcp
+ufw allow 27017/udp
+ufw allow 27017/tcp
 ufw allow 27020/udp
 ufw allow 27020/tcp
 

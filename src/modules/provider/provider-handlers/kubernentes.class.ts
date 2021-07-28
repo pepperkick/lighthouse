@@ -55,7 +55,12 @@ export class KubernetesHandler extends Handler {
 
 			switch (options.game) {
 				case GameEnum.TF2_COMP:
+					if (!options.data) {
+						options.data = {}
+					}
 					options.tvPort = port + 1
+					options.data.hatchAddress = `:${port + 2}`
+					options.data.hatchPassword = options.rconPassword
 					data = Tf2Chart.getDataObject(options, {
 						tvEnable: true,
 						image: this.provider.metadata.image,
@@ -121,7 +126,8 @@ export class KubernetesHandler extends Handler {
 	 * Get a random port
 	 */
 	getRandomPort(): number {
+		const portGap = 8;
 		return ((Math.floor(((Math.random() * (
-			this.provider.metadata.kubePorts.max - this.provider.metadata.kubePorts.min) + this.provider.metadata.kubePorts.min)) / 2))* 2);
+			this.provider.metadata.kubePorts.max - this.provider.metadata.kubePorts.min) + this.provider.metadata.kubePorts.min)) / portGap)) * portGap);
 	}
 }

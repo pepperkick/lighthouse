@@ -46,6 +46,11 @@ export class Server extends Document {
 
   @Prop()
   data: {
+    // For hatch
+    hatchAddress?: string
+    hatchPassword?: string
+
+    // For git repository
     git_repository?: string
     git_deploy_key?: string
 

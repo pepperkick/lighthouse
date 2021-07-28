@@ -3,7 +3,6 @@ import { Provider } from "../provider.model";
 import * as Vultr from "@vultr/vultr-node";
 import { renderString } from "src/string.util";
 import * as sleep from "await-sleep";
-import { query } from "gamedig";
 import { Game } from '../../games/game.model';
 import { Server } from '../../servers/server.model';
 import { Game as GameEnum } from '../../../objects/game.enum';
@@ -30,8 +29,13 @@ export class VultrHandler extends Handler {
 
 		switch (options.game) {
 			case GameEnum.TF2_COMP:
+				if (!options.data) {
+					options.data = {}
+				}
 				options.port = 27015
 				options.tvPort = 27020
+				options.data.hatchAddress = ":27017"
+				options.data.hatchPassword = options.rconPassword
 				data = Tf2Chart.getDataObject(options, {
 					port: options.port,
 					tvEnable: true,

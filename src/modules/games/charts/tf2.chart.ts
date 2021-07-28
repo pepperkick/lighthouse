@@ -6,7 +6,19 @@ import { Server } from '../../servers/server.model';
 
 const APP_LABEL = config.label;
 
-export interface GameArgsOptions {
+export interface HatchOptions {
+	/**
+	 * Address for hatch program to listen to
+	 */
+	hatchAddress: string
+
+	/**
+	 * Password to use for query protection
+	 */
+	hatchPassword: string
+}
+
+export interface GameArgsOptions extends HatchOptions {
 	/**
 	 * Server IP to bind
 	 */
@@ -98,7 +110,9 @@ export class Tf2Chart {
 	}
 
 	static getArgs(options: GameArgsOptions): string {
-		let args = "./srcds_run +servercfgfile server -condebug";
+		let args = "./start.sh"
+		args += ` --hatch-address '${options.hatchAddress}' --hatch-password '${options.hatchPassword}'`
+		args += ` +servercfgfile server -condebug`;
 		args += ` +hostname \\"${options.servername || "Team Fortress"}\\"`;
 		args += ` +sv_password \\"${options.password || ""}\\"`;
 		args += ` +rcon_password \\"${options.rconPassword || ""}\\"`;
@@ -134,7 +148,9 @@ export class Tf2Chart {
 			id: server._id,
 			port: server.port || port,
 			image,
-			hostname
+			hostname,
+			hatchAddress: server.data.hatchAddress || `:27017`,
+			hatchPassword: server.data.hatchPassword || server.rconPassword
 		}
 
 		if (tvEnable) {
