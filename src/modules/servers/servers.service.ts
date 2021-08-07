@@ -285,6 +285,10 @@ export class ServersService {
     if (server.status === ServerStatus.CLOSING || server.status === ServerStatus.DEALLOCATING)
       throw new BadRequestException("Server is closing")
 
+    if (!server.closeAt) {
+      server.closeAt = new Date();
+    }
+
     await this.updateStatusAndNotify(server, ServerStatus.CLOSING);
 
     // Process the close request
