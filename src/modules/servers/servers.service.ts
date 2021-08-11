@@ -448,7 +448,10 @@ export class ServersService {
     });
     this.logger.debug(`Found ${activeServers.length} running servers...`)
     for (const server of activeServers) {
-      setTimeout(async () => await this.checkForMinimumPlayers(server), 100);
+      setTimeout(async () => {
+        if (![ServerStatus.CLOSING, ServerStatus.CLOSED].includes(server.status))
+          await this.checkForMinimumPlayers(server)
+      }, 100);
     }
 
     // Check for close times in idle servers
