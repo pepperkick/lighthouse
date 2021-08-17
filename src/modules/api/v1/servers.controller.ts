@@ -9,20 +9,9 @@ export class ServersController {
   constructor(private readonly service: ServersService) {}
 
   /**
-   * Get list of servers
-   */
-  @Get("/")
-  async getServers(@Query("all") all: boolean): Promise<Server[]> {
-    if (all)
-      return this.service.getAllServers();
-
-    return this.service.getActiveServers();
-  }
-
-  /**
    * Get list of servers by client
    */
-  @Get("/client")
+  @Get("/")
   @UseGuards(ClientGuard)
   async getServersByClient(@Req() request: RequestWithClient, @Query("all") all: boolean): Promise<Server[]> {
     if (all)

@@ -250,9 +250,9 @@ export class ServersService {
     server.rconPassword = options.rconPassword;
     server.data = options.data;
     server.closePref = {
-      minPlayers: options.closePref.minPlayers || 2,
-      idleTime: options.closePref.idleTime || 900,
-      waitTime: options.closePref.waitTime || 300
+      minPlayers: options.closePref?.minPlayers || 2,
+      idleTime: options.closePref?.idleTime || 900,
+      waitTime: options.closePref?.waitTime || 300
     }
     await server.save()
 
