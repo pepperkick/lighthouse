@@ -3,164 +3,85 @@ import * as path from "path";
 import * as config from "../../../../config.json"
 import { renderString } from "src/string.util";
 import { Server } from '../../servers/server.model';
+import { GameChart } from './common.chart';
+import * as crypto from 'crypto';
 
 const APP_LABEL = config.label;
 
-export interface HatchOptions {
-	/**
-	 * Address for hatch program to listen to
-	 */
-	hatchAddress: string
-
-	/**
-	 * Password to use for query protection
-	 */
-	hatchPassword: string
-}
-
-export interface GameArgsOptions extends HatchOptions {
-	/**
-	 * Server IP to bind
-	 */
-	ip: string
-
-	/**
-	 * Server port to bind
-	 */
-	port?: number
-
-	/**
-	 * Server name to use
-	 * Default: Team Fortress
-	 */
-	servername?: string
-
-	/**
-	 * Server password to use
-	 * Leave blank for none
-	 */
-	password?: string
-
-	/**
-	 * Rcon password to use
-	 * Leave blank for none
-	 */
-	rconPassword?: string
-
-	/**
-	 * Map name to start the server with
-	 * Default: cp_badlands
-	 */
-	map?: string
-
-	/**
-	 * SourceTV options
-	 */
-	tv?: {
-		/**
-		 * Is TV enabled
-		 */
-		enabled?: boolean,
-
-		/**
-		 * Server port to bind source tv
-		 */
-		port?: number,
-
-		/**
-		 * Name for source tv
-		 * Default: SourceTV
-		 */
-		name?: string
-	}
-}
-
-export interface BookingOptions extends GameArgsOptions {
-	/**
-	 * Deployment ID
-	 */
-	id: string
-
-	/**
-	 * Image name to use
-	 */
-	image: string
-
-	/**
-	 * Node hostname to use
-	 */
-	hostname: string
-}
-
-export class Tf2Chart {
-	static renderDeployment(options: BookingOptions): string {
-		const args = this.getArgs(options);
+export class Tf2Chart extends GameChart {
+	static renderDeployment(server: Server, hostname: string, instanceLabel: string): string {
+		const args = Tf2Chart.getArgs(server);
 		const app = "tf2"
-		return renderString(
-			fs.readFileSync(
-				path.resolve(__dirname + '/../../../../assets/deployment.yaml')
-			).toString(), {
+		const file = '/../../../../assets/deployment.yaml'
+		const contents = fs.readFileSync(path.resolve(__dirname + file)).toString()
+		return renderString(contents, {
 			label: APP_LABEL,
 			app,
-			id: options.id,
-			image: options.image,
-			hostname: options.hostname,
+			instanceLabel,
+			id: server.id,
+			image: server.image,
+			gitRepo: server.data.gitRepository || "",
+			gitKey: server.data.gitDeployKey || "",
+			hostname,
 			args
 		});
 	}
 
-	static getArgs(options: GameArgsOptions): string {
+	static getArgs(server: Server): string {
+		let name = `${server.data.servername || "Team Fortress"}`
+		name = name.split('"').join("")
+
 		let args = "./start.sh"
-		args += ` --hatch-address '${options.hatchAddress}' --hatch-password '${options.hatchPassword}'`
+		args += ` --hatch-address '${server.data.hatchAddress}' --hatch-password '${server.data.hatchPassword}'`
 		args += ` +servercfgfile server -condebug`;
-		args += ` +hostname \\"${options.servername || "Team Fortress"}\\"`;
-		args += ` +sv_password \\"${options.password || ""}\\"`;
-		args += ` +rcon_password \\"${options.rconPassword || ""}\\"`;
-		args += ` +map \\"${options.map || "cp_badlands"}\\"`;			
-		args += ` +port ${options.port || "27015"}`;
+		args += ` +hostname '${name}'`;
+		args += ` +sv_password '${server.data.password || ""}'`;
+		args += ` +rcon_password '${server.data.rconPassword || ""}'`;
+		args += ` +map '${server.data.map || "cp_badlands"}'`;
+		args += ` +port ${server.port || "27015"}`;
 
-		if (options.ip)
-			args += ` +ip ${options.ip}`;
+		if (server.ip)
+			args += ` +ip ${server.ip}`;
 
-		if (options.tv.enabled) {
+		if (server.data.tvEnable) {
 			args += ` +tv_enable 1`;
-			args += ` +tv_name \\"${options.tv.name || "SourceTV"}\\"`;
-			args += ` +tv_title \\"${options.tv.name || "SourceTV"}\\"`;
-			args += ` +tv_port ${options.tv.port || "27020"}`;
+			args += ` +tv_name '${server.data.tvName || "SourceTV"}'`;
+			args += ` +tv_title '${server.data.tvName || "SourceTV"}'`;
+			args += ` +tv_port ${server.data.tvPort|| "27020"}`;
+			args += ` +tv_password '${server.data.tvPassword || ""}'`;
 		}
 
 		return args;
 	}
 
-	static getDataObject(
-		server: Server,
-		{
-			port = 27815,
-			image = "",
-			tvEnable = false,
-			tvPort = 27020,
-			tvName = "QixTV",
-			hostname = "Qixalite Bookable"
-		}
-	): BookingOptions {
-		const data: BookingOptions = {
-			...server.toJSON(),
-			id: server._id,
-			port: server.port || port,
-			image,
-			hostname,
-			hatchAddress: server.data.hatchAddress || `:27017`,
-			hatchPassword: server.data.hatchPassword || server.rconPassword
+	static populate(server: Server, options: Server): Server {
+		server.data = {
+			...server.data,
+			servername: options.data?.servername || config.instance.hostname || "Lighthouse Bookable",
+			password: options.data?.password,
+			rconPassword: options.data?.rconPassword,
+			tvPassword: options.data?.tvPassword,
+			tvPort: 27020,
+			tvEnable: true,
+			tvName: options.data?.tvName || config.instance.tvName || "LighthouseTV",
+			map: options.data?.map || "cp_badlands",
+			hatchAddress: options.data?.hatchAddress || ":27017",
+			hatchElasticURL: config.hatch.elasticUrl,
+			hatchElasticChatIndex: config.hatch.elasticChatIndex,
+			hatchElasticLogsIndex: config.hatch.elasticLogsIndex
 		}
 
-		if (tvEnable) {
-			data.tv = {
-				enabled: true,
-				port: server.tvPort || tvPort,
-				name: tvName
-			}
-		}
+		if (server.data.password !== "")
+			server.data.password = crypto.randomBytes(4).toString("hex");
 
-		return data
+		if (server.data.rconPassword !== "")
+			server.data.rconPassword = crypto.randomBytes(4).toString("hex");
+
+		if (server.data.tvPassword !== "")
+			server.data.tvPassword = crypto.randomBytes(4).toString("hex");
+
+		server.data.hatchPassword = options.data?.hatchPassword || server.data.rconPassword
+
+		return server
 	}
 }

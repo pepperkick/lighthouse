@@ -11,8 +11,8 @@
  * @param str String to do rendering in
  * @param data Data to use while rendering
  */
-export function renderString(str: string, data = {}) {
-	for (let key in data)
+export function renderString(str: string, data = {}): string {
+	for (const key in data)
 		if (data.hasOwnProperty(key))
 			str = str.replace(new RegExp(`{{ ${key} }}`, "g"), data[key]);
 

@@ -1,15 +1,14 @@
 import { Handler } from "../handler.class";
 import { Provider } from "../provider.model";
 import * as exec from "await-exec";
-import { renderString } from "src/string.util";
 import { Server } from '../../servers/server.model';
 import { Game } from '../../games/game.model';
-import { AZURE_STARTUP_SCRIPT } from '../../../assets/tf2';
-import { Game as GameEnum } from '../../../objects/game.enum';
-import { GameArgsOptions as Tf2Options, Tf2Chart } from '../../games/charts/tf2.chart';
-import { GameArgsOptions as ValheimOptions, ValheimChart } from '../../games/charts/valheim.chart';
+import { AZURE_STARTUP_SCRIPT as TF2_STARTUP_SCRIPT } from '../../../assets/tf2';
+import { AZURE_STARTUP_SCRIPT as VALHEIM_STARTUP_SCRIPT } from '../../../assets/valheim';
+import { AZURE_STARTUP_SCRIPT as MINECRAFT_STARTUP_SCRIPT } from '../../../assets/minecraft';
+import * as config from '../../../../config.json';
 
-const STARTUP_SCRIPT = AZURE_STARTUP_SCRIPT
+const label = config.instance.label
 
 export class AzureHandler extends Handler {
 	constructor(provider: Provider, game: Game) {
@@ -17,45 +16,17 @@ export class AzureHandler extends Handler {
 		provider.metadata = { ...provider.metadata, ...game.data.providerOverrides.azure };
 	}
 
-	async createInstance(options: Server): Promise<Server> {
-		let data, args;
-
-		switch (options.game) {
-			case GameEnum.TF2_COMP:
-				if (!options.data) {
-					options.data = {}
-				}
-				options.port = 27015
-				options.tvPort = 27020
-				options.data.hatchAddress = ":27017"
-				options.data.hatchPassword = options.rconPassword
-				data = Tf2Chart.getDataObject(options, {
-					port: options.port,
-					tvEnable: true,
-					tvPort: options.tvPort,
-					image: this.provider.metadata.image
-				}) as Tf2Options
-				args = Tf2Chart.getArgs(data);
-				break
-			case GameEnum.VALHEIM:
-				options.port = 2456
-				data = ValheimChart.getDataObject(options, {
-					port: options.port,
-					image: this.provider.metadata.image
-				}) as ValheimOptions
-				args = ValheimChart.getArgs(data);
-				break
-		}
-		const script = renderString(STARTUP_SCRIPT, {
-			id: data.id,
-			image: data.image,
-			args
-		});
-		this.logger.debug(`Script: ${script}`)
+	async createInstance(server: Server): Promise<Server> {
+		const [_server, script] = this.getDefaultOptions(server, {
+			tf2: TF2_STARTUP_SCRIPT,
+			minecraft: MINECRAFT_STARTUP_SCRIPT,
+			valheim: VALHEIM_STARTUP_SCRIPT
+		})
+		server = _server
 		
 		try {
 			const metadata = this.provider.metadata;	
-			const group = `lighthouse-${data.id}`;
+			const group = `${label}-${server.id}`;
 			await exec(`az login -u '${metadata.azureUsername}' -p '${metadata.azurePassword}'`);
 			await exec(`az account set --subscription '${metadata.azureSubscriptionId}'`);
 			await exec(`az group create --name ${group} --location ${metadata.azureLocation}`);
@@ -67,21 +38,20 @@ export class AzureHandler extends Handler {
 			const ip_str = ip.stdout.replace("\n", "");
 
 			this.logger.debug(`Assigned azure IP ${ip_str}`);
-			data.ip = ip_str;
-			options.ip = ip_str;
-			await options.save();
+			server.ip = ip_str;
+			await server.save();
 		} catch (error) {
 			this.logger.error(`Failed to create azure instance`, error);
 			throw error;
 		}
 
-		return options;
+		return server;
 	}
 
 	async destroyInstance(server: Server): Promise<void> {
 		try {
 			const metadata = this.provider.metadata;	
-			const group = `lighthouse-${server.id}`;
+			const group = `${label}-${server.id}`;
 			await exec(`az login -u "${metadata.azureUsername}" -p "${metadata.azurePassword}"`);
 			await exec(`az account set --subscription "${metadata.azureSubscriptionId}"`);
 			await exec(`az group delete --name ${group} --yes`);

@@ -4,13 +4,13 @@ import { Game } from '../../games/game.model';
 import { Server } from '../../servers/server.model';
 import * as sleep from "await-sleep";
 import axios from 'axios';
-import { Game as GameEnum } from '../../../objects/game.enum';
-import { GameArgsOptions as Tf2Options, Tf2Chart } from '../../games/charts/tf2.chart';
-import { GameArgsOptions as ValheimOptions, ValheimChart } from '../../games/charts/valheim.chart';
+import { writeFileSync } from 'fs';
 import { BINARYLANE_STARTUP_SCRIPT as TF2_STARTUP_SCRIPT } from '../../../assets/tf2';
 import { BINARYLANE_STARTUP_SCRIPT as VALHEIM_STARTUP_SCRIPT } from '../../../assets/valheim';
-import { renderString } from '../../../string.util';
-import { writeFileSync } from 'fs';
+import { BINARYLANE_STARTUP_SCRIPT as MINECRAFT_STARTUP_SCRIPT } from '../../../assets/minecraft';
+import * as config from '../../../../config.json';
+
+const label = config.instance.label
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const SSH = require("ssh2-promise")
@@ -27,66 +27,18 @@ export class BinaryLaneHandler extends Handler {
     this.api_token = provider.metadata.binarylaneApiKey
   }
 
-  async createInstance(options: Server): Promise<Server> {
-    this.logger.debug(`Options: options(${JSON.stringify(options, null, 2)})`, "createInstance")
-    let STARTUP_SCRIPT = "", data, args;
-
-    switch (options.game) {
-      case GameEnum.TF2_COMP:
-        if (!options.data) {
-          options.data = {}
-        }
-        options.port = 27015
-        options.tvPort = 27020
-        options.data.hatchAddress = ":27017"
-        options.data.hatchPassword = options.rconPassword
-        data = Tf2Chart.getDataObject(options, {
-          port: options.port,
-          tvEnable: true,
-          tvPort: options.tvPort,
-          image: this.provider.metadata.image
-        }) as Tf2Options
-        args = Tf2Chart.getArgs(data);
-        break
-      case GameEnum.VALHEIM:
-        options.port = 2456
-        data = ValheimChart.getDataObject(options, {
-          port: options.port,
-          image: this.provider.metadata.image
-        }) as ValheimOptions
-        args = ValheimChart.getArgs(data);
-        break
-    }
-
-    switch (options.game) {
-      case GameEnum.TF2_COMP:
-        STARTUP_SCRIPT = TF2_STARTUP_SCRIPT
-        break
-      case GameEnum.VALHEIM:
-        STARTUP_SCRIPT = VALHEIM_STARTUP_SCRIPT
-        break
-    }
-
-    const args_options = {
-      id: data.id,
-      image: data.image,
-      git_repo: undefined,
-      git_key: undefined,
-      args
-    }
-
-    if (options.data?.git_repository) {
-      args_options.git_repo = options.data.git_repository
-      args_options.git_key = options.data.git_deploy_key
-    }
-
-    const script = renderString(STARTUP_SCRIPT, args_options);
-    this.logger.debug(`Script: ${script}`)
+  async createInstance(server: Server): Promise<Server> {
+    const [_server, script] = this.getDefaultOptions(server, {
+      tf2: TF2_STARTUP_SCRIPT,
+      minecraft: MINECRAFT_STARTUP_SCRIPT,
+      valheim: VALHEIM_STARTUP_SCRIPT
+    })
+    server = _server
 
     try {
       // Create the server
       const body = {
-        "name": `${options._id}.lighthouse.qixalite.com`,
+        "name": `${server._id}.${label}.lighthouse.com`,
         "backups": false,
         "size": this.provider.metadata.binarylaneMachineSize,
         "image": parseInt(this.provider.metadata.binarylaneMachineImage),
@@ -103,8 +55,7 @@ export class BinaryLaneHandler extends Handler {
       const serverIp = data.server.networks.v4[0].ip_address
 
       this.logger.debug(`Assigned Binarylane IP ${serverIp}`);
-      data.ip = serverIp
-      options.ip = serverIp;
+      server.ip = serverIp;
 
       if (!serverId) {
         throw new Error("Failed to create the server instance")
@@ -126,10 +77,10 @@ export class BinaryLaneHandler extends Handler {
           break;
         }
 
-        retry++;
-        await sleep(2000);
+        await sleep(5000);
+        this.logger.debug(`Retry: ( ${retry} / 120 )`, "waitingForServer")
 
-        if (retry === 120) {
+        if (retry++ === 120) {
           throw new Error("Failed to allocate server");
         }
       }
@@ -144,13 +95,13 @@ export class BinaryLaneHandler extends Handler {
 
       // Write key
       const sshKey = this.provider.metadata.binarylaneSSHKey;
-      writeFileSync(`./binarylane-${options.id}.key`, sshKey);
+      writeFileSync(`./binarylane-${server.id}.key`, sshKey);
 
       // Connect via ssh
       const sshconfig = {
         host: serverIp,
         username: "root",
-        identity: `./binarylane-${options.id}.key`
+        identity: `./binarylane-${server.id}.key`
       }
       this.logger.log("Connecting to server via SSH...");
       const ssh = new SSH(sshconfig);
@@ -160,10 +111,10 @@ export class BinaryLaneHandler extends Handler {
       await ssh.close()
       this.logger.log("SSH connection closed");
 
-      return options
+      return server
     } catch (error) {
       this.logger.error(`Failed to create binarylane instance`, error);
-      await this.destroyInstance(options);
+      await this.destroyInstance(server);
       throw error;
     }
   }
@@ -172,7 +123,7 @@ export class BinaryLaneHandler extends Handler {
     this.logger.debug(`Options: server(${server})`, "destroyInstance")
 
     // Find the server
-    const targetServer = await this.getServerIdByName(`${server._id}.lighthouse.qixalite.com`)
+    const targetServer = await this.getServerIdByName(`${server._id}.${label}.lighthouse.com`)
 
     if (!targetServer) {
       this.logger.log("Target server not found")

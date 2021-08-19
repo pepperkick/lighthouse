@@ -1,5 +1,5 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
-import { ClientsService } from '../../clients/clients.service';
+import { ClientsService } from '../../../clients/clients.service';
 
 @Injectable()
 export class ClientGuard implements CanActivate {

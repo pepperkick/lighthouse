@@ -1,17 +1,15 @@
 import { Handler } from '../handler.class';
 import { Provider } from '../provider.model';
 import * as sleep from 'await-sleep';
-import { renderString } from 'src/string.util';
 import { createApiClient } from 'dots-wrapper';
 import { Server } from '../../servers/server.model';
 import { Game } from '../../games/game.model';
-import { Game as GameEnum } from '../../../objects/game.enum';
 import { DIGITAL_OCEAN_STARTUP_SCRIPT as TF2_STARTUP_SCRIPT } from '../../../assets/tf2';
 import { DIGITAL_OCEAN_STARTUP_SCRIPT as VALHEIM_STARTUP_SCRIPT } from '../../../assets/valheim';
 import { DIGITAL_OCEAN_STARTUP_SCRIPT as MINECRAFT_STARTUP_SCRIPT } from '../../../assets/minecraft';
-import { GameArgsOptions as Tf2Options, Tf2Chart } from '../../games/charts/tf2.chart';
-import { GameArgsOptions as ValheimOptions, ValheimChart } from '../../games/charts/valheim.chart';
-import { GameArgsOptions as MinecraftOptions, MinecraftChart } from '../../games/charts/minecraft.chart';
+import * as config from '../../../../config.json';
+
+const label = config.instance.label
 
 export class DigitalOceanHandler extends Handler {
 	constructor(provider: Provider, game: Game) {
@@ -20,73 +18,13 @@ export class DigitalOceanHandler extends Handler {
 		provider.metadata = { ...provider.metadata, ...game.data.providerOverrides.digital_ocean };
 	}
 	
-	async createInstance(options: Server): Promise<Server> {
-		let STARTUP_SCRIPT = "", data, args;
-
-		switch (options.game) {
-			case GameEnum.TF2_COMP:
-				if (!options.data) {
-					options.data = {}
-				}
-				options.port = 27015
-				options.tvPort = 27020
-				options.data.hatchAddress = ":27017"
-				options.data.hatchPassword = options.rconPassword
-				data = Tf2Chart.getDataObject(options, {
-					port: options.port,
-					tvEnable: true,
-					tvPort: options.tvPort,
-					image: this.provider.metadata.image
-				}) as Tf2Options
-				args = Tf2Chart.getArgs(data);
-				break
-			case GameEnum.VALHEIM:
-				options.port = 2456
-				data = ValheimChart.getDataObject(options, {
-					port: options.port,
-					image: this.provider.metadata.image
-				}) as ValheimOptions
-				args = ValheimChart.getArgs(data);
-				break
-			case GameEnum.MINECRAFT:
-				options.port = 25565
-				options.data.rconPort = 25575
-				data = MinecraftChart.getDataObject(options, {
-					port: options.port,
-					rconPort: options.data.rconPort,
-					image: this.provider.metadata.image
-				}) as MinecraftOptions
-				args = MinecraftChart.getArgs(data);
-				break
-		}
-
-		switch (options.game) {
-			case GameEnum.TF2_COMP:
-				STARTUP_SCRIPT = TF2_STARTUP_SCRIPT
-				break
-			case GameEnum.VALHEIM:
-				STARTUP_SCRIPT = VALHEIM_STARTUP_SCRIPT
-				break
-			case GameEnum.MINECRAFT:
-				STARTUP_SCRIPT = MINECRAFT_STARTUP_SCRIPT
-				break
-		}
-
-		const args_options = {
-			id: data.id,
-			image: data.image,
-			git_repo: undefined,
-			git_key: undefined,
-			args
-		}
-
-		if (options.data?.git_repository) {
-			args_options.git_repo = options.data.git_repository
-			args_options.git_key = options.data.git_deploy_key
-		}
-
-		const script = renderString(STARTUP_SCRIPT, args_options);
-		this.logger.debug(`Script: ${script}`)
+	async createInstance(server: Server): Promise<Server> {
+		const [_server, script] = this.getDefaultOptions(server, {
+			tf2: TF2_STARTUP_SCRIPT,
+			minecraft: MINECRAFT_STARTUP_SCRIPT,
+			valheim: VALHEIM_STARTUP_SCRIPT
+		})
+		server = _server
 		
 		try {
 			let image;
@@ -109,11 +47,11 @@ export class DigitalOceanHandler extends Handler {
 			this.logger.log(`Found image id ${image}`)
 
 			const { data: { droplet } } = await client.droplet.createDroplet({
-				name: `lighthouse-${data.id}`,
+				name: `${label}-${server.id}`,
 				region: metadata.digitalOceanRegion,
 				size: metadata.digitalOceanMachineType,
 				image,
-				tags: [ `lighthouse`, `lighthouse-${data.id}` ],
+				tags: [ `lighthouse`, label, `${label}-${server.id}`, server.game ],
 				user_data: script,
 				ssh_keys: [ metadata.digitalOceanSSHKeyId ]
 			});
@@ -126,9 +64,8 @@ export class DigitalOceanHandler extends Handler {
 				const ip = query?.data?.droplet?.networks?.v4.filter(ele => ele.type === "public")[0]?.ip_address;
 				if (ip) {
 					this.logger.debug(`Assigned Digital Ocean IP ${ip}`);
-					data.ip = ip
-					options.ip = ip;
-					await options.save();
+					server.ip = ip;
+					await server.save();
 					break;
 				}
 
@@ -138,10 +75,10 @@ export class DigitalOceanHandler extends Handler {
 				}
 			}
 
-			return options;
+			return server;
 		} catch (error) {
 			this.logger.error(`Failed to create digital ocean instance`, error);
-			await this.destroyInstance(options);
+			await this.destroyInstance(server);
 			throw error;
 		}
 	}
@@ -152,7 +89,7 @@ export class DigitalOceanHandler extends Handler {
 				token: this.provider.metadata.digitalOceanToken
 			});
 			await client.droplet.deleteDropletsByTag({
-				tag_name: `lighthouse-${server.id}`
+				tag_name: `${label}-${server.id}`
 			});
 		} catch (error) {
 			this.logger.error(`Failed to destroy digital ocean instance`, error);

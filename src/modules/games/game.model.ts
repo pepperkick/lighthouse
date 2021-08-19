@@ -10,7 +10,7 @@ export class Game extends Document {
   @Prop({ type: String })
   name: string
 
-  @Prop()
+  @Prop({ type: Object })
   data: {
     queryType: Type
     providerOverrides: {

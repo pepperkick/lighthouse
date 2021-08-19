@@ -6,14 +6,15 @@ import { renderString } from "src/string.util";
 import * as Ansible from "node-ansible";
 import { Game } from '../../games/game.model';
 import { Server } from '../../servers/server.model';
-import { Game as GameEnum } from '../../../objects/game.enum';
-import { GCP_STARTUP_SCRIPT as TF2_STARTUP_SCRIPT, GCP_CREATE_PLAYBOOK, GCP_DESTROY_PLAYBOOK } from '../../../assets/tf2';
+import * as config from "../../../../config.json"
+import { GCP_CREATE_PLAYBOOK, GCP_DESTROY_PLAYBOOK } from "../../../assets/common"
+import { GCP_STARTUP_SCRIPT as TF2_STARTUP_SCRIPT } from '../../../assets/tf2';
 import { GCP_STARTUP_SCRIPT as VALHEIM_STARTUP_SCRIPT } from '../../../assets/valheim';
-import { GameArgsOptions as Tf2Options, Tf2Chart } from '../../games/charts/tf2.chart';
-import { GameArgsOptions as ValheimOptions, ValheimChart } from '../../games/charts/valheim.chart';
+import { GCP_STARTUP_SCRIPT as MINECRAFT_STARTUP_SCRIPT } from '../../../assets/minecraft';
 
 const CREATE_PLAYBOOK = GCP_CREATE_PLAYBOOK
 const DESTROY_PLAYBOOK = GCP_DESTROY_PLAYBOOK
+const label = config.instance.label
 
 export class GCloudHandler extends Handler {
 	compute: any
@@ -40,59 +41,19 @@ export class GCloudHandler extends Handler {
 		this.region = this.compute.region(provider.metadata.gcpRegion);
 	}
 
-	async createInstance(options: Server): Promise<Server> {
-		let STARTUP_SCRIPT = "", app = "", data, args;
-
-		switch (options.game) {
-			case GameEnum.TF2_COMP:
-				if (!options.data) {
-					options.data = {}
-				}
-				options.port = 27015
-				options.tvPort = 27020
-				options.data.hatchAddress = ":27017"
-				options.data.hatchPassword = options.rconPassword
-				data = Tf2Chart.getDataObject(options, {
-					port: options.port,
-					tvEnable: true,
-					tvPort: options.tvPort,
-					image: this.provider.metadata.image
-				}) as Tf2Options
-				args = Tf2Chart.getArgs(data);
-				break
-			case GameEnum.VALHEIM:
-				options.port = 2456
-				data = ValheimChart.getDataObject(options, {
-					port: options.port,
-					image: this.provider.metadata.image
-				}) as ValheimOptions
-				args = ValheimChart.getArgs(data);
-				break
-		}
-
-		switch (options.game) {
-			case GameEnum.TF2_COMP:
-				STARTUP_SCRIPT = TF2_STARTUP_SCRIPT
-				app = "tf2"
-				break
-			case GameEnum.VALHEIM:
-				STARTUP_SCRIPT = VALHEIM_STARTUP_SCRIPT
-				app = "valheim"
-				break
-		}
-
-		const script = renderString(STARTUP_SCRIPT, {
-			id: data.id,
-			image: data.image,
-			args
+	async createInstance(server: Server): Promise<Server> {
+		const [_server, script] = this.getDefaultOptions(server, {
+			tf2: TF2_STARTUP_SCRIPT,
+			minecraft: MINECRAFT_STARTUP_SCRIPT,
+			valheim: VALHEIM_STARTUP_SCRIPT
 		})
-		this.logger.debug(`Script: ${script}`)
+		server = _server
 
 		const playbook = renderString(CREATE_PLAYBOOK, {
-			app,
+			app: label,
 			gcp_cred_file: `./gcloud-${this.provider.id}-${this.project}.key.json`,
 			project: this.project,
-			id: options.id,
+			id: server.id,
 			zone: this.provider.metadata.gcpZone,
 			region: this.provider.metadata.gcpRegion,
 			image: this.provider.metadata.gcpVmImage,
@@ -101,41 +62,28 @@ export class GCloudHandler extends Handler {
 		});
 		
 		try {
-			writeFileSync(`./gcloud-playbook-${options.id}-create.yml`, playbook);
+			writeFileSync(`./gcloud-playbook-${server.id}-create.yml`, playbook);
 
-			const command = new Ansible.Playbook().playbook(`gcloud-playbook-${options.id}-create`);
+			const command = new Ansible.Playbook().playbook(`gcloud-playbook-${server.id}-create`);
 			const result = await command.exec();
 			this.logger.log(result);
 
-			const address = this.region.address(`tf2-${options.id}`);
+			const address = this.region.address(`${label}-${server.id}`);
 			const address_data = await address.get();
-			const ip = (await address_data[0].getMetadata())[0].address;
 
-			data.ip = ip;
-			options.ip = ip;
-			await options.save();
+			server.ip = (await address_data[0].getMetadata())[0].address;
+			await server.save();
 		}	catch (error) {
 			this.logger.error(`Failed to create gcloud instance`, error);
 			throw error;
 		}	
 
-		return options;
+		return server;
   }
   
 	async destroyInstance(server: Server): Promise<void> {
-		let app = "";
-
-		switch (server.game) {
-			case GameEnum.TF2_COMP:
-				app = "tf2"
-				break
-			case GameEnum.VALHEIM:
-				app = "valheim"
-				break
-		}
-
 		const playbook = renderString(DESTROY_PLAYBOOK, {
-			app,
+			app: label,
 			gcp_cred_file: `./gcloud-${this.provider.id}-${this.project}.key.json`,
 			project: this.project,
 			id: server.id,

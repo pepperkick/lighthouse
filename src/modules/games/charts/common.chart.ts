@@ -1,23 +1,12 @@
-import { GameArgsOptions as Tf2Args } from './tf2.chart';
-import { GameArgsOptions as ValheimArgs } from './valheim.chart';
+import { Server } from '../../servers/server.model';
+import { NotImplementedException } from '@nestjs/common';
 
-export interface GameArgsOptions extends Tf2Args, ValheimArgs {
+export class GameChart {
+  static renderDeployment(options: Server, hostname: string, instanceLabel: string): string {
+    throw new NotImplementedException()
+  }
 
-}
-
-export interface BookingOptions extends GameArgsOptions {
-  /**
-   * Deployment ID
-   */
-  id: string
-
-  /**
-   * Image name to use
-   */
-  image: string
-
-  /**
-   * Node hostname to use
-   */
-  hostname: string
+  static getArgs(options: Server): string {
+    throw new NotImplementedException()
+  }
 }

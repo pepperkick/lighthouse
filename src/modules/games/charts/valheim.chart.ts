@@ -3,91 +3,39 @@ import { renderString } from '../../../string.util';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as config from '../../../../config.json';
+import { GameChart } from './common.chart';
 
 const APP_LABEL = config.label;
 
-export interface GameArgsOptions {
-  /**
-   * Server port to bind
-   */
-  port?: number
-
-  /**
-   * Server name to use
-   * Default: Valheim
-   */
-  servername?: string
-
-  /**
-   * Server password to use
-   * Leave blank for none
-   * Minimum 5 chars
-   */
-  password?: string
-
-  /**
-   * World name to start the server with
-   * Default: dedicated
-   */
-  world?: string
-}
-
-export interface BookingOptions extends GameArgsOptions {
-  /**
-   * Deployment ID
-   */
-  id: string
-
-  /**
-   * Image name to use
-   */
-  image: string
-
-  /**
-   * Node hostname to use
-   */
-  hostname: string
-}
-
-export class ValheimChart {
-  static renderDeployment(options: BookingOptions): string {
-    const args = this.getArgs(options);
+export class ValheimChart extends GameChart {
+  static renderDeployment(server: Server, hostname: string, instanceLabel: string): string {
+    const args = this.getArgs(server);
     const app = "valheim"
-    return renderString(fs.readFileSync(path.resolve(__dirname + '/../../../../assets/deployment.yaml')).toString(), {
+    const file = '/../../../../assets/deployment.yaml'
+    const contents = fs.readFileSync(path.resolve(__dirname + file)).toString()
+    return renderString(contents, {
       label: APP_LABEL,
       app,
-      id: options.id,
-      image: options.image,
-      hostname: options.hostname,
+      instanceLabel,
+      id: server.id,
+      image: server.image,
+      gitRepo: server.data.gitRepository,
+      gitKey: server.data.gitDeployKey,
+      hostname,
       args
     });
   }
 
-  static getArgs(options: GameArgsOptions): string {
-    let args = "";
-    args += ` -name "${options.servername || "Valheim"}"`;
-    args += ` -world "${options.world || "Dedicated"}"`;
-    args += ` -port ${options.port || "2456"}`;
+  static getArgs(server: Server): string {
+    let args = "bash -c '/root/res/start.sh";
+    args += ` -name "${server.data.servername || "Valheim"}"`;
+    args += ` -world "${server.data.world || "World"}"`;
+    args += ` -port ${server.port || "2456"}`;
     args += ` -public 1`;
 
-    if (options.password)
-      args += ` -password "${options.password}"`;
+    if (server.data.password)
+      args += ` -password "${server.data.password}"`;
 
     return args;
-  }
-
-  static getDataObject(
-    server: Server,
-    {
-      port = 27815,
-      image = "",
-      hostname = "Valheim"
-    }
-  ): BookingOptions {
-    return {
-      ...server.toJSON(),
-      id: server._id,
-      port, image, hostname
-    }
   }
 }

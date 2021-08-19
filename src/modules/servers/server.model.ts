@@ -14,20 +14,11 @@ export class Server extends Document {
   @Prop({ type: Date })
   createdAt: Date
 
-  @Prop()
-  password: string
-
-  @Prop()
-  rconPassword: string
-
-  @Prop()
-  tvPassword: string
+  @Prop({ type: Date })
+  closeAt: Date
 
   @Prop()
   port: number
-
-  @Prop()
-  tvPort: number
 
   @Prop()
   ip: string
@@ -38,37 +29,51 @@ export class Server extends Document {
   @Prop({ required: true })
   provider: string
 
+  @Prop()
+  image: string
+
   @Prop({ type: String })
   status: ServerStatus
 
-  @Prop()
-  callbackUrl: string
-
-  @Prop()
+  @Prop({ type: Object })
   data: {
-    // For hatch
+    // For TF2, Valheim
+    password?: string
+
+    // For TF2
+    servername?: string
+    rconPassword?: string
+    tvEnable?: boolean
+    tvPassword?: string
+    tvPort?: number
+    tvName?: string
+    map?: string
+
+    // For Minecraft
+    rconPort?: number
+
+    // For Valheim
+    world?: string
+
+    // For Status Updates
+    callbackUrl?: string
+
+    // For Auto Close
+    closeMinPlayers?: number
+    closeIdleTime?: number
+    closeWaitTime?: number
+
+    // For Git Repository
+    gitRepository?: string
+    gitDeployKey?: string
+
+    // For Hatch
     hatchAddress?: string
     hatchPassword?: string
+    hatchElasticURL?: string
 
-    // For git repository
-    git_repository?: string
-    git_deploy_key?: string
-
-    // For minecraft
-    rconPort?: number
-  }
-
-  @Prop({ type: Boolean })
-  markForClose: boolean
-
-  @Prop({ type: Date })
-  closeAt: Date
-
-  @Prop()
-  closePref: {
-    minPlayers: number
-    idleTime: number
-    waitTime: number
+    hatchElasticChatIndex?: string
+    hatchElasticLogsIndex?: string
   }
 }
 

@@ -180,7 +180,7 @@ Response
     "client": "KSW2NUZGB9YGLXZ9W4NG3TXWIRQ2HD4R",
     "provider": "sydney_kubernetes_1",
     "region": "sydney",
-    "game": "tf2-comp",
+    "game": "tf2",
     "createdAt": "2021-01-12T18:38:03.983Z",
     "status": "INIT",
     "closePref": {
@@ -218,7 +218,7 @@ Body
 ```json5
 {
   // Game to create server for
-  "game": "tf2-comp",
+  "game": "tf2",
   
   // Region of the server
   "region": "sydney",
@@ -246,7 +246,7 @@ Response
   "client": "KSW2NUZGB9YGLXZ9W4NG3TXWIRQ2HD4R",
   "provider": "sydney_kubernetes_1",
   "region": "sydney",
-  "game": "tf2-comp",
+  "game": "tf2",
   "createdAt": "2021-01-12T18:38:03.983Z",
   "status": "INIT",
   "closePref": {
@@ -284,7 +284,7 @@ Response
   "client": "KSW2NUZGB9YGLXZ9W4NG3TXWIRQ2HD4R",
   "provider": "sydney_kubernetes_1",
   "region": "sydney",
-  "game": "tf2-comp",
+  "game": "tf2",
   "createdAt": "2021-01-12T18:58:30.087Z",
   "status": "IDLE",
   "data": {

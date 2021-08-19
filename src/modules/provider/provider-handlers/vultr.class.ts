@@ -1,15 +1,15 @@
 import { Handler } from "../handler.class";
 import { Provider } from "../provider.model";
 import * as Vultr from "@vultr/vultr-node";
-import { renderString } from "src/string.util";
 import * as sleep from "await-sleep";
 import { Game } from '../../games/game.model';
 import { Server } from '../../servers/server.model';
-import { Game as GameEnum } from '../../../objects/game.enum';
 import { VULTR_STARTUP_SCRIPT as TF2_STARTUP_SCRIPT } from '../../../assets/tf2';
 import { VULTR_STARTUP_SCRIPT as VALHEIM_STARTUP_SCRIPT } from '../../../assets/valheim';
-import { GameArgsOptions as Tf2Options, Tf2Chart } from '../../games/charts/tf2.chart';
-import { GameArgsOptions as ValheimOptions, ValheimChart } from '../../games/charts/valheim.chart';
+import { VULTR_STARTUP_SCRIPT as MINECRAFT_STARTUP_SCRIPT } from '../../../assets/minecraft';
+import * as config from '../../../../config.json';
+
+const label = config.instance.label
 
 export class VultrHandler extends Handler {
 	api: any;
@@ -24,55 +24,17 @@ export class VultrHandler extends Handler {
 		});
 	}
 
-	async createInstance(options: Server): Promise<Server> {
-		let STARTUP_SCRIPT = "", data, args;
-
-		switch (options.game) {
-			case GameEnum.TF2_COMP:
-				if (!options.data) {
-					options.data = {}
-				}
-				options.port = 27015
-				options.tvPort = 27020
-				options.data.hatchAddress = ":27017"
-				options.data.hatchPassword = options.rconPassword
-				data = Tf2Chart.getDataObject(options, {
-					port: options.port,
-					tvEnable: true,
-					tvPort: options.tvPort,
-					image: this.provider.metadata.image
-				}) as Tf2Options
-				args = Tf2Chart.getArgs(data);
-				break
-			case GameEnum.VALHEIM:
-				options.port = 2456
-				data = ValheimChart.getDataObject(options, {
-					port: options.port,
-					image: this.provider.metadata.image
-				}) as ValheimOptions
-				args = ValheimChart.getArgs(data);
-				break
-		}
-
-		switch (options.game) {
-			case GameEnum.TF2_COMP:
-				STARTUP_SCRIPT = TF2_STARTUP_SCRIPT
-				break
-			case GameEnum.VALHEIM:
-				STARTUP_SCRIPT = VALHEIM_STARTUP_SCRIPT
-				break
-		}
-
-		const script = renderString(STARTUP_SCRIPT, {
-			id: data.id,
-			image: data.image,
-			args
-		});
-		this.logger.debug(`Script: ${script}`)
+	async createInstance(server: Server): Promise<Server> {
+		const [_server, script] = this.getDefaultOptions(server, {
+			tf2: TF2_STARTUP_SCRIPT,
+			minecraft: MINECRAFT_STARTUP_SCRIPT,
+			valheim: VALHEIM_STARTUP_SCRIPT
+		})
+		server = _server
 		
 		try {
 			const script_info = await this.api.startupScript.create({
-				name: `script-${data.id}`,
+				name: `script-${server.id}`,
 				script
 			});
 			const script_id = script_info.SCRIPTID;
@@ -81,17 +43,17 @@ export class VultrHandler extends Handler {
 				throw new Error("Failed to create script");
 			}
 
-			const server = await this.api.server.create({
+			const instance = await this.api.server.create({
 				SCRIPTID: script_id,
 				APPID: 37,
 				OSID: 186,
 				VPSPLANID: this.provider.metadata.vultrPlanId,
 				DCID: this.provider.metadata.vultrLocationId, 
-				label: `tf2-${data.id}`,
+				label: `${label}-${server.id}`,
 				notify_activate: 'no'
 			});
 
-			if (!server.SUBID) {
+			if (!instance.SUBID) {
 				throw new Error("Failed to start server");
 			}
 
@@ -99,7 +61,7 @@ export class VultrHandler extends Handler {
 			let retry = 0;
 			while (!(server_info?.status === "active" && server_info?.power_status === "running" && server_info?.server_state === "installingbooting")) {
 				const info = await this.api.server.list({
-					SUBID: parseInt(server.SUBID)
+					SUBID: parseInt(instance.SUBID)
 				});
 				server_info = info
 				this.logger.debug(`Server status ${info.status} ${info.power_status} ${info.server_state}`);	
@@ -111,16 +73,15 @@ export class VultrHandler extends Handler {
 			}		
 			
 			const info = await this.api.server.list({
-				SUBID: parseInt(server.SUBID)
+				SUBID: parseInt(instance.SUBID)
 			});
 
-			data.ip = info.main_ip;
-			options.ip = info.main_ip;
-			await options.save();
+			server.ip = info.main_ip;
+			await server.save();
 
-			return options;
+			return server;
 		} catch (error) {
-			await this.destroyInstance(options);
+			await this.destroyInstance(server);
 			this.logger.error(`Failed to create vultr instance`, error);
 			throw error;
 		}
@@ -142,7 +103,7 @@ export class VultrHandler extends Handler {
 		
 		for (const sid in servers) {
 			const item = servers[sid];
-			if (item.label === `tf2-${server.id}`) {
+			if (item.label === `${label}-${server.id}`) {
 				await this.api.server.delete({
 					SUBID: parseInt(item.SUBID)
 				});

@@ -4,10 +4,13 @@ import * as yaml from 'js-yaml';
 import * as ApiClient from 'kubernetes-client';
 import { Game } from '../../games/game.model';
 import { Server } from '../../servers/server.model';
-import { GameArgsOptions as Tf2Options, Tf2Chart } from '../../games/charts/tf2.chart';
-import { GameArgsOptions as ValheimOptions, ValheimChart } from '../../games/charts/valheim.chart';
 import { Game as GameEnum } from '../../../objects/game.enum';
+import { Tf2Chart } from '../../games/charts/tf2.chart';
+import { ValheimChart } from '../../games/charts/valheim.chart';
+import { MinecraftChart } from '../../games/charts/minecraft.chart';
+import * as config from '../../../../config.json';
 
+const label = config.instance.label
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { KubeConfig } = require('kubernetes-client')
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -45,56 +48,41 @@ export class KubernetesHandler extends Handler {
 		}
 	}
 
-	async createInstance(options: Server): Promise<Server> {
+	async createInstance(server: Server): Promise<Server> {
 		try {
-			let data;
+			const hostname = this.provider.metadata.kubeHostname;
+			server.image = server.image || this.provider.metadata.image
+			server.ip = this.provider.metadata.kubeIp;
+			server.port = await this.getFreePort()
 
-			const port = await this.getFreePort();
-			options.ip = this.provider.metadata.kubeIp;
-			options.port = port
-
-			switch (options.game) {
-				case GameEnum.TF2_COMP:
-					if (!options.data) {
-						options.data = {}
-					}
-					options.tvPort = port + 1
-					options.data.hatchAddress = `:${port + 2}`
-					options.data.hatchPassword = options.rconPassword
-					data = Tf2Chart.getDataObject(options, {
-						tvEnable: true,
-						image: this.provider.metadata.image,
-						hostname: this.provider.metadata.kubeHostname
-					}) as Tf2Options
+			switch (server.game) {
+				case GameEnum.TF2:
+					server.data.tvPort = server.port + 1
+					server.data.hatchAddress = `:${server.port + 2}`
 					break
 				case GameEnum.VALHEIM:
-					data = ValheimChart.getDataObject(options, {
-						port: options.port,
-						image: this.provider.metadata.image,
-						hostname: this.provider.metadata.kubeHostname
-					}) as ValheimOptions
+					break
+				case GameEnum.MINECRAFT:
 					break
 			}
 
-			if (options.game === "tf2-comp") {
-				data.tv.enabled  = true
-				data.tv.port = data.port + 1
-				data.tv.name = "QixTV"
-			}
-
-			this.logger.debug(`Assigned address for id ${options.id} ${this.provider.metadata.kubeIp}:${port}`);
+			this.logger.debug(`Assigned address for id ${server.id} ${this.provider.metadata.kubeIp}:${server.port}`);
 
 			let chart;
-			if (options.game === GameEnum.TF2_COMP) {
-				chart = Tf2Chart.renderDeployment(data);
-			} else if (options.game === GameEnum.VALHEIM) {
-				chart = ValheimChart.renderDeployment(data);
+			if (server.game === GameEnum.TF2) {
+				chart = Tf2Chart.renderDeployment(server, hostname, label);
+			} else if (server.game === GameEnum.VALHEIM) {
+				chart = ValheimChart.renderDeployment(server, hostname, label);
+			} else if (server.game === GameEnum.MINECRAFT) {
+				chart = MinecraftChart.renderDeployment(server, hostname, label);
 			}
+
+			console.log(chart)
 
 			await this.kube.apis.app.v1
 				.namespaces(this.namespace).deployments.post({ body: yaml.load(chart) });
 
-			return options;
+			return server;
 		} catch (error) {
 			this.logger.error("Failed to create kubernetes instance", error);
 		}
@@ -103,7 +91,7 @@ export class KubernetesHandler extends Handler {
 	async destroyInstance(server: Server): Promise<void> {
 		try {
 			await this.kube.apis.app.v1
-				.namespaces(this.namespace).deployments(`tf2-${server._id}`).delete();
+				.namespaces(this.namespace).deployments(`${label}-${server._id}`).delete();
 		} catch (error) {
 			this.logger.error(`Failed to destroy kubernetes instance`, error);
 		}

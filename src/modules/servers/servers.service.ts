@@ -9,47 +9,16 @@ import { GamesService } from '../games/games.service';
 import { ProviderType } from '../provider/provider.model';
 import { KubeData } from '../provider/provider-handlers/kubernentes.class';
 import { query } from 'gamedig';
-import { Game } from '../../objects/game.enum';
 import { renderString } from '../../string.util';
 import axios from 'axios';
-import * as crypto from 'crypto';
 import * as ApiClient from 'kubernetes-client';
 import * as config from '../../../config.json';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
-
-export interface ServerRequestOptions {
-  // Game to use while deploying
-  game: Game
-
-  // Region of the server
-  region: string
-
-  // URL to send a POST request when status of the request changes
-  callbackUrl: string
-
-  // ID of a provider that will handle the request
-  provider: string
-
-  // Passwords for server
-  password?: string
-  rconPassword?: string
-
-  // Preferences for closing server
-  closePref?: {
-    minPlayers: number
-    idleTime: number
-    waitTime: number
-  }
-
-  // Custom data
-  data?: {
-    // Repository info
-    git_repository?: string
-    git_deploy_key?: string
-  } & { any }
-}
+import * as process from 'process';
+import { Game } from '../../objects/game.enum';
+import { Tf2Chart } from '../games/charts/tf2.chart';
 
 export const SERVER_ACTIVE_STATUS_CONDITION = [
   { status: ServerStatus.INIT },
@@ -75,10 +44,12 @@ export class ServersService {
     private readonly providerService: ProviderService,
     private readonly gameService: GamesService
   ) {
-    const kubeconfig = new KubeConfig()
-    kubeconfig.loadFromString(config.kube_config)
-    const backend = new Request({ kubeconfig })
-    this.kube = new ApiClient.Client1_13({ backend, version: '1.13' });
+    if (process.env.LIGHTHOUSE_OPERATION_NO_KUBE !== "true") {
+      const kubeconfig = new KubeConfig()
+      kubeconfig.loadFromString(config.kubeConfig)
+      const backend = new Request({ kubeconfig })
+      this.kube = new ApiClient.Client1_13({ backend, version: '1.13' });
+    }
 
     if (process.env.LIGHTHOUSE_OPERATION_MODE === "manager" && config.monitoring.enabled === true) {
       setInterval(async () => {
@@ -181,21 +152,24 @@ export class ServersService {
    * @param client
    * @param options - Options for server
    */
-  async createRequest(client: Client, options: ServerRequestOptions): Promise<Server> {
-    const { game, region, callbackUrl } = options;
+  async createRequest(client: Client, options: Server): Promise<Server> {
+    const { game, region } = options;
+
+    if (!await this.gameService.getBySlug(game))
+      throw new BadRequestException(`No game found with slug ${game}`)
 
     this.logger.log(`Received new server request from client '${client.id}' at region '${region}' for game '${game}'`);
 
     // Check if client can have the required wait timer
-    if (options.closePref && options.closePref.waitTime > client.getWaitTimerLimit())
+    if (options.data?.closeWaitTime > client.getWaitTimerLimit())
       throw new ForbiddenException(`Requested wait time limit is too high`)
 
     // Check if client can have the required close timer
-    if (options.closePref && options.closePref.idleTime > client.getCloseTimerLimit())
+    if (options.data?.closeIdleTime > client.getCloseTimerLimit())
       throw new ForbiddenException(`Requested close time limit is too high`)
 
     // Verify min players
-    if (options.closePref && options.closePref.minPlayers < 1)
+    if (options.data?.closeMinPlayers < 1)
       throw new ForbiddenException(`Requested minimum player is too low`)
 
     // Check if the client has access to the game
@@ -239,20 +213,22 @@ export class ServersService {
       throw new HttpException("Selected provider cannot handle this request currently", 429);
 
     // Create a server object
-    const server = new this.repository({
+    let server = new this.repository({
       client: client.id,
       provider: provider.id,
-      callbackUrl, region, game
+      region, game, data: {}
     });
     server.createdAt = new Date();
     server.status = ServerStatus.INIT;
-    server.password = options.password;
-    server.rconPassword = options.rconPassword;
-    server.data = options.data;
-    server.closePref = {
-      minPlayers: options.closePref?.minPlayers || 2,
-      idleTime: options.closePref?.idleTime || 900,
-      waitTime: options.closePref?.waitTime || 300
+    server.data = {
+      ...server.data,
+      closeMinPlayers: options.data?.closeMinPlayers || 2,
+      closeIdleTime: options.data?.closeIdleTime || 900,
+      closeWaitTime: options.data?.closeWaitTime || 300
+    }
+
+    if (server.game === Game.TF2) {
+      server = Tf2Chart.populate(server, options)
     }
     await server.save()
 
@@ -305,6 +281,16 @@ export class ServersService {
    * @param action
    */
   async createJob(server: Server, action: string): Promise<void> {
+    if (process.env.LIGHTHOUSE_OPERATION_NO_KUBE === "true") {
+      this.logger.log(`Handling job action ${action} for server ${server._id}`);
+
+      if (!await this.processRequest(server)) {
+        throw new Error("Failed to process request");
+      }
+
+      return
+    }
+
     try {
       const jobName = `lighthouse-provider-${server._id}-${action}`
       const contents = renderString(
@@ -380,12 +366,6 @@ export class ServersService {
    * @param server
    */
   async initializeServer(server: Server): Promise<void> {
-    if (!server.password)
-      server.password = crypto.randomBytes(4).toString("hex");
-
-    if (!server.rconPassword)
-      server.rconPassword = crypto.randomBytes(4).toString("hex");
-
     await this.updateStatusAndNotify(server, ServerStatus.ALLOCATING);
 
     const provider = await this.providerService.get(server.provider);
@@ -403,9 +383,9 @@ export class ServersService {
 
     const allocatedServer = await this.providerService.createInstance(provider, server, game, data);
     await this.updateStatusAndNotify(server, ServerStatus.WAITING);
-    await this.setCloseTime(server, server.closePref.waitTime);
+    await this.setCloseTime(server, server.data.closeWaitTime);
 
-    this.logger.log(`Server created ${allocatedServer.id}, (${allocatedServer.ip}:${allocatedServer.port} ${allocatedServer.password} ${allocatedServer.rconPassword})`);
+    this.logger.log(`Server created ${allocatedServer.id}, (${allocatedServer.ip}:${allocatedServer.port} ${allocatedServer.data.password} ${allocatedServer.data.rconPassword})`);
   }
 
   /**
@@ -495,7 +475,7 @@ export class ServersService {
       await this.setCloseTime(server, 0);
     } catch (exception) {
       this.logger.debug(`Failed to query server ${server.id} (${server.ip}:${server.port}) due to ${exception}`);
-      await this.setCloseTime(server, server.closePref.idleTime);
+      await this.setCloseTime(server, server.data.closeIdleTime);
     }
   }
 
@@ -515,9 +495,9 @@ export class ServersService {
 
       this.logger.debug(`Pinged ${server.id} [${server.game}] (${server.ip}:${server.port}) server, ${data.players.length} playing, current status ${server.status}`);
 
-      if (data.players.length < server.closePref.minPlayers) {
+      if (data.players.length < server.data.closeMinPlayers) {
         await this.updateStatusAndNotify(server, ServerStatus.IDLE);
-        await this.setCloseTime(server, server.closePref.idleTime);
+        await this.setCloseTime(server, server.data.closeIdleTime);
       } else {
         await this.updateStatusAndNotify(server, ServerStatus.RUNNING);
         await this.setCloseTime(server, 0);
@@ -525,7 +505,7 @@ export class ServersService {
     } catch (exception) {
       await this.updateStatusAndNotify(server, ServerStatus.UNKNOWN);
       this.logger.debug(`Failed to query server ${server.id} (${server.ip}:${server.port}) due to ${exception}`);
-      await this.setCloseTime(server, server.closePref.idleTime);
+      await this.setCloseTime(server, server.data.closeIdleTime);
     }
   }
 
@@ -539,16 +519,18 @@ export class ServersService {
   async updateStatusAndNotify(server: Server, status: ServerStatus, data: any = {}): Promise<void> {
     if (server.status === status) return;
 
+    const callback = server.data.callbackUrl;
+
     server.status = status;
 
-    if (server.callbackUrl) {
-      this.logger.log(`Notifying URL '${server.callbackUrl}' for status '${server.status} (${server._id})'`);
+    if (callback) {
+      this.logger.log(`Notifying URL '${callback}' for status '${server.status} (${server._id})'`);
 
       try {
-        await axios.post(`${server.callbackUrl}?status=${server.status}`, { ...server.toJSON(), ...data })
+        await axios.post(`${callback}?status=${server.status}`, { ...server.toJSON(), ...data })
       } catch (error) {
         if (error.code === "ECONNREFUSED") {
-          this.logger.warn(`Failed to connect callback URL "${server.callbackUrl}"`);
+          this.logger.warn(`Failed to connect callback URL "${callback}"`);
         } else {
           this.logger.error("Failed to notify callback URL", error)
         }

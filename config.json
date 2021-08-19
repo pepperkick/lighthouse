@@ -1,13 +1,19 @@
 {
   "mongodbUri": "mongodb://admin@mongodb:27017/lighthouse-dev-v1",
   "instance": {
+    "label": "",
     "hostname": "",
-    "tv_name": ""
+    "tvName": ""
+  },
+  "hatch": {
+    "elasticUrl": "",
+    "elasticChatIndex": "",
+    "elasticLogsIndex": ""
   },
   "label": "",
-  "kube_config": "",
   "monitoring": {
     "enabled": true,
     "interval": 30
-  }
+  },
+  "kubeConfig": ""
 }

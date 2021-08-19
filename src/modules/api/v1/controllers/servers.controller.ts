@@ -1,8 +1,8 @@
 import { Body, Controller, Delete, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
-import { ServerRequestOptions, ServersService } from '../../servers/servers.service';
-import { ClientGuard } from './client.guard';
-import { Server } from '../../servers/server.model';
-import { RequestWithClient } from '../../../objects/request-with-client.interface';
+import { ServersService } from '../../../servers/servers.service';
+import { ClientGuard } from '../utils/client.guard';
+import { Server } from '../../../servers/server.model';
+import { RequestWithClient } from '../../../../objects/request-with-client.interface';
 
 @Controller("/api/v1/servers")
 export class ServersController {
@@ -25,7 +25,7 @@ export class ServersController {
    */
   @Post("/")
   @UseGuards(ClientGuard)
-  async create(@Body() body: ServerRequestOptions, @Req() request: RequestWithClient): Promise<Server> {
+  async create(@Body() body: Server, @Req() request: RequestWithClient): Promise<Server> {
     return this.service.createRequest(request.client, body);
   }
 
