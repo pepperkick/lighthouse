@@ -43,6 +43,7 @@ export class Server extends Document {
     // For TF2
     servername?: string
     rconPassword?: string
+    sdrEnable?: boolean
     tvEnable?: boolean
     tvPassword?: string
     tvPort?: number

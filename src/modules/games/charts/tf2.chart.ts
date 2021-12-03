@@ -51,6 +51,10 @@ export class Tf2Chart extends GameChart {
 			args += ` +tv_password '${server.data.tvPassword || ""}'`;
 		}
 
+		if (server.data.sdrEnable) {
+			args += ` --enablefakeip`
+		}
+
 		return args;
 	}
 

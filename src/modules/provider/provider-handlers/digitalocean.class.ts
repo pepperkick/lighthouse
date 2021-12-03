@@ -56,7 +56,7 @@ export class DigitalOceanHandler extends Handler {
 				ssh_keys: [ metadata.digitalOceanSSHKeyId ]
 			});
 
-			this.logger.debug(`Droplet: ${JSON.stringify(droplet)}`)
+			this.logger.debug(`Droplet: ${JSON.stringify(droplet, null, 2)}`)
 
 			let retry = 0;
 			while (true) {		

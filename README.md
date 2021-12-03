@@ -6,7 +6,9 @@ Supported Providers
 - Google Cloud
 - Microsoft Azure
 - Digital Ocean
+- Linode
 - Vultr
+- BinaryLane
 
 ## Config
 

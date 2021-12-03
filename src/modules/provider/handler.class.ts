@@ -30,7 +30,7 @@ export class Handler {
 		throw new NotImplementedException()
 	}
 
-	getDefaultOptions(server: Server, scripts: ProviderGameScripts): [Server, string] {
+	getDefaultOptions(server: Server, scripts: ProviderGameScripts, extraArgs = ""): [Server, string] {
 		this.logger.debug(`Server: server(${JSON.stringify(server, null, 2)})`, "getDefaultOptions")
 
 		let args, startupScript
@@ -52,6 +52,8 @@ export class Handler {
 				args = MinecraftChart.getArgs(server);
 				break
 		}
+
+		args += extraArgs;
 
 		switch (server.game) {
 			case GameEnum.TF2:
