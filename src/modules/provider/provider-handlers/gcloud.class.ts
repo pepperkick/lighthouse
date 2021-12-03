@@ -1,101 +1,21 @@
 import * as Compute from "@google-cloud/compute";
 import { Handler } from "../handler.class";
 import { Provider } from "../provider.model";
-import * as config from "../../../../config.json"
 import { writeFileSync } from "fs";
-import { ServerChart } from "src/modules/servers/server.chart";
 import { renderString } from "src/string.util";
 import * as Ansible from "node-ansible";
 import { Game } from '../../games/game.model';
 import { Server } from '../../servers/server.model';
+import * as config from "../../../../config.json"
+import { GCP_CREATE_PLAYBOOK, GCP_DESTROY_PLAYBOOK } from "../../../assets/common"
+import { GCP_STARTUP_SCRIPT as TF2_STARTUP_SCRIPT } from '../../../assets/tf2';
+import { GCP_STARTUP_SCRIPT as VALHEIM_STARTUP_SCRIPT } from '../../../assets/valheim';
+import { GCP_STARTUP_SCRIPT as MINECRAFT_STARTUP_SCRIPT } from '../../../assets/minecraft';
 
-const STARTUP_SCRIPT = 
-`           #! /bin/bash
-            
-            export BOOKING_ID={{ id }}
-            
-            while : ; do
-              if sudo iptables -L INPUT | grep -i "policy accept"; then
-                break
-              else
-                sudo iptables -P INPUT ACCEPT
-              fi
-            done
-            
-            while : ; do
-              if sudo iptables -L OUTPUT | grep -i "policy accept"; then
-                break
-              else
-                sudo iptables -P OUTPUT ACCEPT
-              fi
-            done
-            
-            docker run --network host {{ image }} {{ args }}`
-const CREATE_PLAYBOOK =
-`
-- name: Create Booking in GCloud
-  hosts: localhost
-  gather_facts: no  
-  vars:
-    gcp_cred_kind: serviceaccount
-  tasks:
-  - name: Create a Address
-    gcp_compute_address:
-      name: '{{ app }}-{{ id }}'
-      region: "{{ region }}"
-      project: "{{ project }}"
-      auth_kind: "{{ gcp_cred_kind }}"
-      service_account_file: "{{ gcp_cred_file }}"
-      state: present
-    register: address
-  - name: Create an instance
-    gcp_compute_instance:
-      state: present
-      name: "{{ app }}-{{ id }}"
-      machine_type: {{ machine_type }}
-      network_interfaces:
-      - access_configs:
-        - name: External NAT
-          nat_ip: "{{ address }}"
-          type: ONE_TO_ONE_NAT
-      disks:
-      - auto_delete: true
-        boot: true
-        initialize_params: 
-          source_image: "{{ image }}"
-      metadata:
-        startup-script: >-
-{{ startup_script }}
-      zone: "{{ zone }}"
-      project: "{{ project }}"
-      auth_kind: "{{ gcp_cred_kind }}"
-      service_account_file: "{{ gcp_cred_file }}"
-`
-const DESTROY_PLAYBOOK =
-`
-- name: Destroy Booking in GCloud
-  hosts: localhost
-  gather_facts: no  
-  vars:
-    gcp_cred_kind: serviceaccount
-  tasks:
-  - name: Delete the instance
-    gcp_compute_instance:
-      name: "{{ app }}-{{ id }}"
-      zone: "{{ zone }}"
-      project: "{{ project }}"
-      auth_kind: "{{ gcp_cred_kind }}"
-      service_account_file: "{{ gcp_cred_file }}"
-      state: absent
-  - name: Delete the Address
-    gcp_compute_address:
-      name: '{{ app }}-{{ id }}'
-      region: "{{ region }}"
-      project: "{{ project }}"
-      auth_kind: "{{ gcp_cred_kind }}"
-      service_account_file: "{{ gcp_cred_file }}"
-      state: absent
-`
+const CREATE_PLAYBOOK = GCP_CREATE_PLAYBOOK
+const DESTROY_PLAYBOOK = GCP_DESTROY_PLAYBOOK
+const label = config.instance.label
+
 export class GCloudHandler extends Handler {
 	compute: any
 	zone: any
@@ -119,31 +39,21 @@ export class GCloudHandler extends Handler {
 		});
 		this.zone = this.compute.zone(provider.metadata.gcpZone);
 		this.region = this.compute.region(provider.metadata.gcpRegion);
-	}	
+	}
 
-	async createInstance(options: Server): Promise<Server> {
-		options.port = 27015;
-		options.tvPort = 27020;
-
-		const data = {
-			...options.toJSON(),
-			id: options._id,
-			image: this.provider.metadata.image,
-			tv: { enabled: true, port: 27020, name: config.instance.tv_name }
-		}
-
-		const args = ServerChart.getArgs(data)
-		const script = renderString(STARTUP_SCRIPT, {
-			id: data.id,
-			image: data.image,
-			args
+	async createInstance(server: Server): Promise<Server> {
+		const [_server, script] = this.getDefaultOptions(server, {
+			tf2: TF2_STARTUP_SCRIPT,
+			minecraft: MINECRAFT_STARTUP_SCRIPT,
+			valheim: VALHEIM_STARTUP_SCRIPT
 		})
+		server = _server
 
 		const playbook = renderString(CREATE_PLAYBOOK, {
-			app: "tf2",
+			app: label,
 			gcp_cred_file: `./gcloud-${this.provider.id}-${this.project}.key.json`,
 			project: this.project,
-			id: options.id,
+			id: server.id,
 			zone: this.provider.metadata.gcpZone,
 			region: this.provider.metadata.gcpRegion,
 			image: this.provider.metadata.gcpVmImage,
@@ -152,30 +62,28 @@ export class GCloudHandler extends Handler {
 		});
 		
 		try {
-			writeFileSync(`./gcloud-playbook-${options.id}-create.yml`, playbook);
+			writeFileSync(`./gcloud-playbook-${server.id}-create.yml`, playbook);
 
-			const command = new Ansible.Playbook().playbook(`gcloud-playbook-${options.id}-create`);
+			const command = new Ansible.Playbook().playbook(`gcloud-playbook-${server.id}-create`);
 			const result = await command.exec();
 			this.logger.log(result);
 
-			const address = this.region.address(`tf2-${options.id}`);
+			const address = this.region.address(`${label}-${server.id}`);
 			const address_data = await address.get();
-			const ip = (await address_data[0].getMetadata())[0].address;
 
-			data.ip = ip;
-			options.ip = ip;
-			await options.save();
+			server.ip = (await address_data[0].getMetadata())[0].address;
+			await server.save();
 		}	catch (error) {
-			this.logger.error("Failed to create instance", error);
+			this.logger.error(`Failed to create gcloud instance`, error);
 			throw error;
 		}	
 
-		return options;
+		return server;
   }
   
 	async destroyInstance(server: Server): Promise<void> {
 		const playbook = renderString(DESTROY_PLAYBOOK, {
-			app: "tf2",
+			app: label,
 			gcp_cred_file: `./gcloud-${this.provider.id}-${this.project}.key.json`,
 			project: this.project,
 			id: server.id,
@@ -191,7 +99,7 @@ export class GCloudHandler extends Handler {
 			const result = await command.exec();
 			this.logger.log(result);
 		} catch (error) {
-			this.logger.error("Failed to destroy instance", error);
+			this.logger.error(`Failed to destroy gcloud instance`, error);
 			throw error;			
 		}
 	}

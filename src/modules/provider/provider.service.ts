@@ -1,7 +1,7 @@
-import { Injectable, Logger, forwardRef, Inject, UnauthorizedException } from '@nestjs/common';
-import { InjectModel } from "@nestjs/mongoose";
-import { Model } from "mongoose";
-import { Provider, ProviderType } from "./provider.model";
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Provider, ProviderType } from './provider.model';
 import { KubeData, KubernetesHandler } from './provider-handlers/kubernentes.class';
 import { GCloudHandler } from './provider-handlers/gcloud.class';
 import { AzureHandler } from './provider-handlers/azure.class';
@@ -10,6 +10,8 @@ import { VultrHandler } from './provider-handlers/vultr.class';
 import { Server } from '../servers/server.model';
 import { Game } from '../games/game.model';
 import { Client } from '../clients/client.model';
+import { BinaryLaneHandler } from './provider-handlers/binarylane.class';
+import { LinodeHandler } from './provider-handlers/linode.class';
 
 @Injectable()
 export class ProviderService {
@@ -67,7 +69,7 @@ export class ProviderService {
 	async createInstance(provider: Provider, server: Server, game: Game, data?: KubeData): Promise<any> {
 		this.logger.debug(`Creating resources for server '${server.id}' using provider '${provider.id}' for game '${game.name}'`);
 
-		switch(provider.type) {
+		switch (provider.type) {
 			case ProviderType.KubernetesNode:
 				return new KubernetesHandler(provider, game, data).createInstance(server);
 			case ProviderType.GCloud:
@@ -78,6 +80,10 @@ export class ProviderService {
 				return new DigitalOceanHandler(provider, game).createInstance(server);
 			case ProviderType.Vultr:
 				return new VultrHandler(provider, game).createInstance(server);
+			case ProviderType.BinaryLane:
+				return new BinaryLaneHandler(provider, game).createInstance(server);
+			case ProviderType.Linode:
+				return new LinodeHandler(provider, game).createInstance(server);
 		}
 	}
 
@@ -101,6 +107,10 @@ export class ProviderService {
 				return new DigitalOceanHandler(provider, game).destroyInstance(server);
 			case ProviderType.Vultr:
 				return new VultrHandler(provider, game).destroyInstance(server);
+			case ProviderType.BinaryLane:
+				return new BinaryLaneHandler(provider, game).destroyInstance(server);
+			case ProviderType.Linode:
+				return new LinodeHandler(provider, game).destroyInstance(server);
 		}
 	}
 

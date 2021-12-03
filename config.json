@@ -1,8 +1,19 @@
 {
   "mongodbUri": "mongodb://admin@mongodb:27017/lighthouse-dev-v1",
   "instance": {
-    "hostname": "Qixalite Booking",
-    "tv_name": "QixTV"
+    "label": "",
+    "hostname": "",
+    "tvName": ""
   },
-  "label": "lighthouse.qixalite.com"
+  "hatch": {
+    "elasticUrl": "",
+    "elasticChatIndex": "",
+    "elasticLogsIndex": ""
+  },
+  "label": "",
+  "monitoring": {
+    "enabled": true,
+    "interval": 30
+  },
+  "kubeConfig": ""
 }

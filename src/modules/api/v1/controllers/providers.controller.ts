@@ -1,7 +1,7 @@
 import { Controller, Get, Param, Req, UseGuards } from '@nestjs/common';
-import { ClientGuard } from './client.guard';
-import { ProviderService } from '../../provider/provider.service';
-import { RequestWithClient } from '../../../objects/request-with-client.interface';
+import { ClientGuard } from '../utils/client.guard';
+import { ProviderService } from '../../../provider/provider.service';
+import { RequestWithClient } from '../../../../objects/request-with-client.interface';
 
 @Controller("/api/v1/providers")
 export class ProvidersController {

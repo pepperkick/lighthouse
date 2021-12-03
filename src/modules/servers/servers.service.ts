@@ -1,10 +1,5 @@
 import { Client } from '../clients/client.model';
-import {
-  BadRequestException,
-  ForbiddenException, HttpException,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpException, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Server } from './server.model';
@@ -14,37 +9,18 @@ import { GamesService } from '../games/games.service';
 import { ProviderType } from '../provider/provider.model';
 import { KubeData } from '../provider/provider-handlers/kubernentes.class';
 import { query } from 'gamedig';
-import * as crypto from 'crypto';
-import axios from "axios";
+import { renderString } from '../../string.util';
+import axios from 'axios';
+import * as ApiClient from 'kubernetes-client';
+import * as config from '../../../config.json';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as yaml from 'js-yaml';
+import * as process from 'process';
+import { Game } from '../../objects/game.enum';
+import { Tf2Chart } from '../games/charts/tf2.chart';
 
-export interface ServerRequestOptions {
-  // Game to use while deploying
-  game: string
-
-  // Region of the server
-  region: string
-
-  // URL to send a POST request when status of the request changes
-  callbackUrl: string
-
-  // ID of a provider that will handle the request
-  provider: string
-
-  // Passwords for server
-  password?: string
-  rconPassword?: string
-
-  // Preferences for closing server
-  closePref?: {
-    minPlayers: number
-    idleTime: number
-  }
-
-  // Custom data
-  data?: any
-}
-
-const SERVER_ACTIVE_STATUS_CONDITION = [
+export const SERVER_ACTIVE_STATUS_CONDITION = [
   { status: ServerStatus.INIT },
   { status: ServerStatus.ALLOCATING },
   { status: ServerStatus.WAITING },
@@ -54,26 +30,61 @@ const SERVER_ACTIVE_STATUS_CONDITION = [
   { status: ServerStatus.DEALLOCATING }
 ]
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { KubeConfig } = require('kubernetes-client')
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const Request = require('kubernetes-client/backends/request')
+
 export class ServersService {
   private readonly logger = new Logger(ServersService.name);
+  private readonly kube: ApiClient.ApiRoot;
 
   constructor(
     @InjectModel(Server.name) private repository: Model<Server>,
     private readonly providerService: ProviderService,
     private readonly gameService: GamesService
   ) {
-    setInterval(async () => {
-      await this.monitor();
-    }, 30 * 1000)
+    if (process.env.LIGHTHOUSE_OPERATION_NO_KUBE !== "true") {
+      const kubeconfig = new KubeConfig()
+      kubeconfig.loadFromString(config.kubeConfig)
+      const backend = new Request({ kubeconfig })
+      this.kube = new ApiClient.Client1_13({ backend, version: '1.13' });
+    }
+
+    if (process.env.LIGHTHOUSE_OPERATION_MODE === "manager" && config.monitoring.enabled === true) {
+      setInterval(async () => {
+        await this.monitor();
+      }, config.monitoring.interval * 1000)
+    }
   }
 
   /**
    * Get server by id
    *
+   * @param id - Server ID
+   */
+  async getById(id: string): Promise<Server> {
+    let server;
+
+    try {
+      server = await this.repository.findById(id);
+    } catch (exception) {
+      throw new NotFoundException();
+    }
+
+    if (!server)
+      throw new NotFoundException();
+
+    return server;
+  }
+
+  /**
+   * Get server by id from specific client
+   *
    * @param client
    * @param id - Server ID
    */
-  async getById(client: Client, id: string): Promise<Server> {
+  async getByIdForClient(client: Client, id: string): Promise<Server> {
     let server;
 
     try {
@@ -107,6 +118,17 @@ export class ServersService {
     return this.repository.find({ $or: SERVER_ACTIVE_STATUS_CONDITION });
   }
 
+
+  /**
+   * Get all active servers for a specific provider
+   *
+   * @param providerId
+   */
+  async getActiveServersForProvider(providerId: string): Promise<Server[]> {
+    return this.repository.find(
+      { provider: providerId, $or: SERVER_ACTIVE_STATUS_CONDITION});
+  }
+
   /**
    * Get all servers
    *
@@ -115,6 +137,7 @@ export class ServersService {
   async getAllServersByClient(client: Client): Promise<Server[]> {
     return this.repository.find({ client: client.id }).limit(50);
   }
+
 
   /**
    * Get all servers
@@ -129,10 +152,25 @@ export class ServersService {
    * @param client
    * @param options - Options for server
    */
-  async createRequest(client: Client, options: ServerRequestOptions): Promise<Server> {
-    const { game, region, callbackUrl } = options;
+  async createRequest(client: Client, options: Server): Promise<Server> {
+    const { game, region } = options;
+
+    if (!await this.gameService.getBySlug(game))
+      throw new BadRequestException(`No game found with slug ${game}`)
 
     this.logger.log(`Received new server request from client '${client.id}' at region '${region}' for game '${game}'`);
+
+    // Check if client can have the required wait timer
+    if (options.data?.closeWaitTime > client.getWaitTimerLimit())
+      throw new ForbiddenException(`Requested wait time limit is too high`)
+
+    // Check if client can have the required close timer
+    if (options.data?.closeIdleTime > client.getCloseTimerLimit())
+      throw new ForbiddenException(`Requested close time limit is too high`)
+
+    // Verify min players
+    if (options.data?.closeMinPlayers < 1)
+      throw new ForbiddenException(`Requested minimum player is too low`)
 
     // Check if the client has access to the game
     if (!client.hasGameAccess(game))
@@ -144,10 +182,19 @@ export class ServersService {
 
     // Fetch all servers inuse by the client
     const clientServers = await this.repository.find(
-      { region: region, client: client.id, $or: SERVER_ACTIVE_STATUS_CONDITION })
+      { client: client.id, $or: SERVER_ACTIVE_STATUS_CONDITION })
+
+    // Check if client has not reached limit
+    if (clientServers.length >= client.getLimit())
+      throw new HttpException(
+        `Cannot create new server as client has reached the limit.`, 429);
+
+    // Fetch all servers inuse by the client in the region
+    const clientRegionServers = await this.repository.find(
+      { region, client: client.id, $or: SERVER_ACTIVE_STATUS_CONDITION })
 
     // Check if client has not reached limit for the region
-    if (clientServers.length >= client.getRegionLimit(region))
+    if (clientRegionServers.length >= client.getRegionLimit(region))
       throw new HttpException(
         `Cannot create new server in '${region}' region as client has reached the limit.`, 429);
 
@@ -166,22 +213,28 @@ export class ServersService {
       throw new HttpException("Selected provider cannot handle this request currently", 429);
 
     // Create a server object
-    const server = new this.repository({
+    let server = new this.repository({
       client: client.id,
       provider: provider.id,
-      callbackUrl, region, game
+      region, game, data: {}
     });
     server.createdAt = new Date();
     server.status = ServerStatus.INIT;
-    server.password = options.password;
-    server.rconPassword = options.rconPassword;
-    server.data = options.data;
-    server.closePref = options.closePref ? options.closePref : { minPlayers: 2, idleTime: 900 }
+    server.data = {
+      ...server.data,
+      closeMinPlayers: options.data?.closeMinPlayers || 2,
+      closeIdleTime: options.data?.closeIdleTime || 900,
+      closeWaitTime: options.data?.closeWaitTime || 300
+    }
+
+    if (server.game === Game.TF2) {
+      server = Tf2Chart.populate(server, options)
+    }
     await server.save()
 
     // Process the newly created request
     setTimeout(() => {
-      this.processRequest(server)
+      this.createJob(server, "create")
     }, 100);
 
     return server;
@@ -208,12 +261,70 @@ export class ServersService {
     if (server.status === ServerStatus.CLOSING || server.status === ServerStatus.DEALLOCATING)
       throw new BadRequestException("Server is closing")
 
+    if (!server.closeAt) {
+      server.closeAt = new Date();
+    }
+
     await this.updateStatusAndNotify(server, ServerStatus.CLOSING);
 
     // Process the close request
     setTimeout(() => {
-      this.processRequest(server)
+      this.createJob(server, "destroy")
     }, 100);
+  }
+
+
+  /**
+   * Create a kubernetes job that will process the request
+   *
+   * @param server
+   * @param action
+   */
+  async createJob(server: Server, action: string): Promise<void> {
+    if (process.env.LIGHTHOUSE_OPERATION_NO_KUBE === "true") {
+      this.logger.log(`Handling job action ${action} for server ${server._id}`);
+
+      if (!await this.processRequest(server)) {
+        throw new Error("Failed to process request");
+      }
+
+      return
+    }
+
+    try {
+      const jobName = `lighthouse-provider-${server._id}-${action}`
+      const contents = renderString(
+        fs.readFileSync(
+          path.resolve(__dirname + '/../../../assets/provider_job.yaml')
+        ).toString(), {
+          id: server._id,
+          action,
+          label: config.label,
+          config_name: process.env.LIGHTHOUSE_PROVIDER_CONFIG_NAME,
+          image: process.env.LIGHTHOUSE_PROVIDER_IMAGE
+        });
+
+      try {
+        await this.kube.apis.batch.v1
+          .namespace(process.env.LIGHTHOUSE_PROVIDER_NAMESPACE)
+          .job(jobName).get()
+
+        this.logger.log(`Job with name '${jobName}' already exists, skipping creation`);
+      } catch (error) {
+        if (error.statusCode === 404) {
+          await this.kube.apis.batch.v1
+            .namespace(process.env.LIGHTHOUSE_PROVIDER_NAMESPACE)
+            .jobs.post({ body: yaml.load(contents) });
+
+          this.logger.log(`Created job for action ${action} for server ${server._id}`);
+        } else {
+          throw error
+        }
+      }
+    } catch (exception) {
+      this.logger.error(`Failed to create job for handling the provider request ${exception}`, exception.stack);
+      await this.updateStatusAndNotify(server, ServerStatus.FAILED);
+    }
   }
 
   /**
@@ -221,22 +332,32 @@ export class ServersService {
    *
    * @param server
    */
-  async processRequest(server: Server): Promise<void> {
+  async processRequest(server: Server): Promise<boolean> {
+    this.logger.log(`Current status of the server ${server._id} is ${server.status}`)
+
     if (server.status === ServerStatus.INIT) {
       try {
         await this.initializeServer(server);
       } catch (exception) {
-        this.logger.error("Failed to initialize server", exception);
+        this.logger.error(`Failed to initialize server ${exception}`, exception.stack);
         await this.updateStatusAndNotify(server, ServerStatus.FAILED);
+        return false;
       }
     } else if (server.status === ServerStatus.CLOSING) {
       try {
         await this.closeServer(server);
       } catch (exception) {
-        this.logger.error("Failed to close server", exception);
+        this.logger.error(`Failed to close server ${exception}`, exception.stack);
         await this.updateStatusAndNotify(server, ServerStatus.FAILED);
+        return false;
       }
+    } else {
+      this.logger.error(`Server (${server._id}) is in wrong state ${server.status} to be processed.`);
+      await this.updateStatusAndNotify(server, ServerStatus.FAILED);
+      return false;
     }
+
+    return true;
   }
 
   /**
@@ -245,12 +366,6 @@ export class ServersService {
    * @param server
    */
   async initializeServer(server: Server): Promise<void> {
-    if (!server.password)
-      server.password = crypto.randomBytes(4).toString("hex");
-
-    if (!server.rconPassword)
-      server.rconPassword = crypto.randomBytes(4).toString("hex");
-
     await this.updateStatusAndNotify(server, ServerStatus.ALLOCATING);
 
     const provider = await this.providerService.get(server.provider);
@@ -268,9 +383,9 @@ export class ServersService {
 
     const allocatedServer = await this.providerService.createInstance(provider, server, game, data);
     await this.updateStatusAndNotify(server, ServerStatus.WAITING);
-    await this.setCloseTime(server, 300);
+    await this.setCloseTime(server, server.data.closeWaitTime);
 
-    this.logger.log(`Server created ${allocatedServer.id}, (${allocatedServer.ip}:${allocatedServer.port} ${allocatedServer.password} ${allocatedServer.rconPassword})`);
+    this.logger.log(`Server created ${allocatedServer.id}, (${allocatedServer.ip}:${allocatedServer.port} ${allocatedServer.data.password} ${allocatedServer.data.rconPassword})`);
   }
 
   /**
@@ -297,23 +412,31 @@ export class ServersService {
    */
   async monitor(): Promise<void> {
     // Check for first heartbeat from waiting servers
-    const waitingServers = await this.repository.find({ status: ServerStatus.WAITING });
+    const waitingServers = await this.repository.find({
+      status: ServerStatus.WAITING
+    });
     for (const server of waitingServers) {
       setTimeout(async () => await this.checkForHeartbeat(server), 100);
     }
 
     // Check for enough players in active servers
     const activeServers = await this.repository.find({ $or: [
+        { status: ServerStatus.UNKNOWN },
         { status: ServerStatus.IDLE },
         { status: ServerStatus.RUNNING }
       ]
     });
+    this.logger.debug(`Found ${activeServers.length} running servers...`)
     for (const server of activeServers) {
-      setTimeout(async () => await this.checkForMinimumPlayers(server), 100);
+      setTimeout(async () => {
+        if (![ServerStatus.CLOSING, ServerStatus.CLOSED].includes(server.status))
+          await this.checkForMinimumPlayers(server)
+      }, 100);
     }
 
     // Check for close times in idle servers
     const idleServers = await this.repository.find({ $or: [
+        { status: ServerStatus.UNKNOWN },
         { status: ServerStatus.IDLE },
         { status: ServerStatus.WAITING }
       ]
@@ -327,7 +450,7 @@ export class ServersService {
 
         // Process the close request
         setTimeout(() => {
-          this.processRequest(server)
+          this.createJob(server, "destroy")
         }, 100);
       }
     }
@@ -352,7 +475,7 @@ export class ServersService {
       await this.setCloseTime(server, 0);
     } catch (exception) {
       this.logger.debug(`Failed to query server ${server.id} (${server.ip}:${server.port}) due to ${exception}`);
-      await this.setCloseTime(server, server.closePref.idleTime);
+      await this.setCloseTime(server, server.data.closeIdleTime);
     }
   }
 
@@ -370,19 +493,19 @@ export class ServersService {
         type: game.data.queryType
       });
 
-      this.logger.debug(`Pinged ${server.id} (${server.ip}:${server.port}) server, ${data.players.length} playing`);
+      this.logger.debug(`Pinged ${server.id} [${server.game}] (${server.ip}:${server.port}) server, ${data.players.length} playing, current status ${server.status}`);
 
-      if (data.players.length < server.closePref.minPlayers) {
+      if (data.players.length < server.data.closeMinPlayers) {
         await this.updateStatusAndNotify(server, ServerStatus.IDLE);
-        await this.setCloseTime(server, server.closePref.idleTime);
+        await this.setCloseTime(server, server.data.closeIdleTime);
       } else {
         await this.updateStatusAndNotify(server, ServerStatus.RUNNING);
         await this.setCloseTime(server, 0);
       }
-
     } catch (exception) {
+      await this.updateStatusAndNotify(server, ServerStatus.UNKNOWN);
       this.logger.debug(`Failed to query server ${server.id} (${server.ip}:${server.port}) due to ${exception}`);
-      await this.setCloseTime(server, server.closePref.idleTime);
+      await this.setCloseTime(server, server.data.closeIdleTime);
     }
   }
 
@@ -396,16 +519,18 @@ export class ServersService {
   async updateStatusAndNotify(server: Server, status: ServerStatus, data: any = {}): Promise<void> {
     if (server.status === status) return;
 
+    const callback = server.data.callbackUrl;
+
     server.status = status;
 
-    if (server.callbackUrl) {
-      this.logger.log(`Notifying URL '${server.callbackUrl}' for status '${server.status}'`);
+    if (callback) {
+      this.logger.log(`Notifying URL '${callback}' for status '${server.status} (${server._id})'`);
 
       try {
-        await axios.post(`${server.callbackUrl}?status=${server.status}`, { ...server.toJSON(), ...data })
+        await axios.post(`${callback}?status=${server.status}`, { ...server.toJSON(), ...data })
       } catch (error) {
         if (error.code === "ECONNREFUSED") {
-          this.logger.warn(`Failed to connect callback URL "${server.callbackUrl}"`);
+          this.logger.warn(`Failed to connect callback URL "${callback}"`);
         } else {
           this.logger.error("Failed to notify callback URL", error)
         }

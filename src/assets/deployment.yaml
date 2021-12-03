@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: '{{ app }}-{{ id }}'
+  name: '{{ instanceLabel }}-{{ id }}'
   labels:
     app: '{{ app }}'
     {{ label }}/id: "{{ id }}"
@@ -9,12 +9,12 @@ spec:
   selector:
     matchLabels:
       app: '{{ app }}'
-      instance: '{{ app }}-{{ id }}'
+      instance: '{{ instanceLabel }}-{{ id }}'
   template:
     metadata:
       labels:
         app: '{{ app }}'
-        instance: '{{ app }}-{{ id }}'
+        instance: '{{ instanceLabel }}-{{ id }}'
     spec:
       terminationGracePeriodSeconds: 1
       hostNetwork: true
@@ -29,3 +29,7 @@ spec:
         env:
         - name: BOOKING_ID
           value: '{{ id }}'
+        - name: GIT_REPO
+          value: {{ gitRepo }}
+        - name: GIT_KEY
+          value: {{ gitKey }}

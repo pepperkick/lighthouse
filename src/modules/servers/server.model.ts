@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { ServerStatus } from '../../objects/server-status.enum';
+import { Game } from '../../objects/game.enum';
 
 @Schema()
 export class Server extends Document {
@@ -8,25 +9,16 @@ export class Server extends Document {
   client: string
 
   @Prop({ type: String, required: true })
-  game: string
+  game: Game
 
   @Prop({ type: Date })
   createdAt: Date
 
-  @Prop()
-  password: string
-
-  @Prop()
-  rconPassword: string
-
-  @Prop()
-  tvPassword: string
+  @Prop({ type: Date })
+  closeAt: Date
 
   @Prop()
   port: number
-
-  @Prop()
-  tvPort: number
 
   @Prop()
   ip: string
@@ -37,25 +29,52 @@ export class Server extends Document {
   @Prop({ required: true })
   provider: string
 
+  @Prop()
+  image: string
+
   @Prop({ type: String })
   status: ServerStatus
 
-  @Prop()
-  callbackUrl: string
+  @Prop({ type: Object })
+  data: {
+    // For TF2, Valheim
+    password?: string
 
-  @Prop()
-  data: { any }
+    // For TF2
+    servername?: string
+    rconPassword?: string
+    sdrEnable?: boolean
+    tvEnable?: boolean
+    tvPassword?: string
+    tvPort?: number
+    tvName?: string
+    map?: string
 
-  @Prop({ type: Boolean })
-  markForClose: boolean
+    // For Minecraft
+    rconPort?: number
 
-  @Prop({ type: Date })
-  closeAt: Date
+    // For Valheim
+    world?: string
 
-  @Prop()
-  closePref: {
-    minPlayers: number
-    idleTime: number
+    // For Status Updates
+    callbackUrl?: string
+
+    // For Auto Close
+    closeMinPlayers?: number
+    closeIdleTime?: number
+    closeWaitTime?: number
+
+    // For Git Repository
+    gitRepository?: string
+    gitDeployKey?: string
+
+    // For Hatch
+    hatchAddress?: string
+    hatchPassword?: string
+    hatchElasticURL?: string
+
+    hatchElasticChatIndex?: string
+    hatchElasticLogsIndex?: string
   }
 }
 

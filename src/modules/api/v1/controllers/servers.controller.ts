@@ -1,28 +1,17 @@
 import { Body, Controller, Delete, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
-import { ServerRequestOptions, ServersService } from '../../servers/servers.service';
-import { ClientGuard } from './client.guard';
-import { Server } from '../../servers/server.model';
-import { RequestWithClient } from '../../../objects/request-with-client.interface';
+import { ServersService } from '../../../servers/servers.service';
+import { ClientGuard } from '../utils/client.guard';
+import { Server } from '../../../servers/server.model';
+import { RequestWithClient } from '../../../../objects/request-with-client.interface';
 
 @Controller("/api/v1/servers")
 export class ServersController {
   constructor(private readonly service: ServersService) {}
 
   /**
-   * Get list of servers
-   */
-  @Get("/")
-  async getServers(@Query("all") all: boolean): Promise<Server[]> {
-    if (all)
-      return this.service.getAllServers();
-
-    return this.service.getActiveServers();
-  }
-
-  /**
    * Get list of servers by client
    */
-  @Get("/client")
+  @Get("/")
   @UseGuards(ClientGuard)
   async getServersByClient(@Req() request: RequestWithClient, @Query("all") all: boolean): Promise<Server[]> {
     if (all)
@@ -36,7 +25,7 @@ export class ServersController {
    */
   @Post("/")
   @UseGuards(ClientGuard)
-  async create(@Body() body: ServerRequestOptions, @Req() request: RequestWithClient): Promise<Server> {
+  async create(@Body() body: Server, @Req() request: RequestWithClient): Promise<Server> {
     return this.service.createRequest(request.client, body);
   }
 
@@ -46,7 +35,7 @@ export class ServersController {
   @Get("/:id")
   @UseGuards(ClientGuard)
   async getServer(@Req() request: RequestWithClient, @Param("id") id: string): Promise<Server> {
-    return this.service.getById(request.client, id);
+    return this.service.getByIdForClient(request.client, id);
   }
 
   /**

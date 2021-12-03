@@ -10,7 +10,7 @@ export class Game extends Document {
   @Prop({ type: String })
   name: string
 
-  @Prop()
+  @Prop({ type: Object })
   data: {
     queryType: Type
     providerOverrides: {
@@ -19,6 +19,8 @@ export class Game extends Document {
       azure: any
       digital_ocean: any
       vultr: any
+      binarylane: any
+      linode: any
     }
   }
 }

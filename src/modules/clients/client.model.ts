@@ -19,6 +19,9 @@ export class Client extends Document {
   @Prop({ type: Object })
   access: {
     games: string[],
+    close_timer_limit: number,
+    close_wait_limit: number,
+    limit: number,
     regions: { [key: string]: RegionAccess },
     providers: string[]
   }
@@ -32,6 +35,9 @@ export class Client extends Document {
   hasRegionAccess: (string) => boolean
   hasProviderAccess: (string) => boolean
   getRegionLimit: (string) => number
+  getLimit: () => number
+  getCloseTimerLimit: () => number
+  getWaitTimerLimit: () => number
 }
 
 export const ClientSchema = SchemaFactory.createForClass(Client);
@@ -50,15 +56,23 @@ ClientSchema.methods.hasProviderAccess = function (provider: string): boolean {
   if (this.noAccess.providers.includes(provider)) return false;
 
   // Check if client has a access list, if yes then is the provider present
-  if (
-    this.access.providers &&
+  return !(this.access.providers &&
     this.access.providers.length !== 0 &&
-    !this.access.providers.includes(provider)
-  ) return false;
-
-  return true;
+    !this.access.providers.includes(provider));
 }
 
 ClientSchema.methods.getRegionLimit = function (region: string): number {
   return this.access.regions[region]?.limit
+}
+
+ClientSchema.methods.getLimit = function (): number {
+  return this.access.limit
+}
+
+ClientSchema.methods.getCloseTimerLimit = function (): number {
+  return this.access.close_timer_limit
+}
+
+ClientSchema.methods.getWaitTimerLimit = function (): number {
+  return this.access.close_wait_limit
 }
