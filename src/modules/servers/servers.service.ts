@@ -213,7 +213,7 @@ export class ServersService {
       throw new HttpException("Selected provider cannot handle this request currently", 429);
 
     // Create a server object
-    let server = new this.repository({
+    let server: Server = new this.repository({
       client: client.id,
       provider: provider.id,
       region, game, data: {}
@@ -224,12 +224,14 @@ export class ServersService {
       ...server.data,
       closeMinPlayers: options.data?.closeMinPlayers || 2,
       closeIdleTime: options.data?.closeIdleTime || 900,
-      closeWaitTime: options.data?.closeWaitTime || 300
+      closeWaitTime: options.data?.closeWaitTime || 300,
+      callbackUrl: options.data?.callbackUrl || ""
     }
 
     if (server.game === Game.TF2) {
       server = Tf2Chart.populate(server, options)
     }
+
     await server.save()
 
     // Process the newly created request

@@ -17,19 +17,19 @@ export class Server extends Document {
   @Prop({ type: Date })
   closeAt: Date
 
-  @Prop()
+  @Prop({ type: Number })
   port: number
 
-  @Prop()
+  @Prop({ type: String })
   ip: string
 
-  @Prop()
+  @Prop({ type: String })
   region: string
 
   @Prop({ required: true })
   provider: string
 
-  @Prop()
+  @Prop({ type: String })
   image: string
 
   @Prop({ type: String })
