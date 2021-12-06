@@ -72,7 +72,6 @@ export class Server extends Document {
     hatchAddress?: string
     hatchPassword?: string
     hatchElasticURL?: string
-
     hatchElasticChatIndex?: string
     hatchElasticLogsIndex?: string
   }

@@ -62,10 +62,10 @@ export class Tf2Chart extends GameChart {
 		server.data = {
 			...server.data,
 			servername: options.data?.servername || config.instance.hostname || "Lighthouse Bookable",
-			password: options.data?.password,
-			rconPassword: options.data?.rconPassword,
+			password: options.data?.password || "",
+			rconPassword: options.data?.rconPassword || "",
 			sdrEnable: options.data?.sdrEnable,
-			tvPassword: options.data?.tvPassword,
+			tvPassword: options.data?.tvPassword || "",
 			tvPort: 27020,
 			tvEnable: true,
 			tvName: options.data?.tvName || config.instance.tvName || "LighthouseTV",
@@ -76,13 +76,13 @@ export class Tf2Chart extends GameChart {
 			hatchElasticLogsIndex: config.hatch.elasticLogsIndex
 		}
 
-		if (server.data.password !== "")
+		if (server.data.password === "*")
 			server.data.password = crypto.randomBytes(4).toString("hex");
 
-		if (server.data.rconPassword !== "")
+		if (server.data.rconPassword === "*")
 			server.data.rconPassword = crypto.randomBytes(4).toString("hex");
 
-		if (server.data.tvPassword !== "")
+		if (server.data.tvPassword === "*")
 			server.data.tvPassword = crypto.randomBytes(4).toString("hex");
 
 		server.data.hatchPassword = options.data?.hatchPassword || server.data.rconPassword

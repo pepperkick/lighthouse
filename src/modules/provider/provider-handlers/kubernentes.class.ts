@@ -68,6 +68,9 @@ export class KubernetesHandler extends Handler {
 
 			this.logger.debug(`Assigned address for id ${server.id} ${this.provider.metadata.kubeIp}:${server.port}`);
 
+			server.markModified("data");
+			await server.save();
+
 			let chart;
 			if (server.game === GameEnum.TF2) {
 				chart = Tf2Chart.renderDeployment(server, hostname, label);

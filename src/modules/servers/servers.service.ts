@@ -186,8 +186,7 @@ export class ServersService {
 
     // Check if client has not reached limit
     if (clientServers.length >= client.getLimit())
-      throw new HttpException(
-        `Cannot create new server as client has reached the limit.`, 429);
+      throw new ForbiddenException(`Cannot create new server as client has reached the limit.`);
 
     // Fetch all servers inuse by the client in the region
     const clientRegionServers = await this.repository.find(
