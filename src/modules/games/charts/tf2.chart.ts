@@ -52,7 +52,7 @@ export class Tf2Chart extends GameChart {
 		}
 
 		if (server.data.sdrEnable) {
-			args += ` --enablefakeip`
+			args += ` -enablefakeip`
 		}
 
 		return args;

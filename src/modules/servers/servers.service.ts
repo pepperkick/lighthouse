@@ -2,13 +2,14 @@ import { Client } from '../clients/client.model';
 import { BadRequestException, ForbiddenException, HttpException, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { query } from 'gamedig';
+import Rcon from 'rcon-ts';
 import { Server } from './server.model';
 import { ServerStatus } from '../../objects/server-status.enum';
 import { ProviderService } from '../provider/provider.service';
 import { GamesService } from '../games/games.service';
 import { ProviderType } from '../provider/provider.model';
 import { KubeData } from '../provider/provider-handlers/kubernentes.class';
-import { query } from 'gamedig';
 import { renderString } from '../../string.util';
 import axios from 'axios';
 import * as ApiClient from 'kubernetes-client';
@@ -472,12 +473,44 @@ export class ServersService {
       });
 
       this.logger.log(`Received first heartbeat for server ${server.id}`);
+      await this.runInitialSetups(server);
       await this.updateStatusAndNotify(server, ServerStatus.IDLE);
       await this.setCloseTime(server, 0);
     } catch (exception) {
       this.logger.debug(`Failed to query server ${server.id} (${server.ip}:${server.port}) due to ${exception}`);
       await this.setCloseTime(server, server.data.closeIdleTime);
     }
+  }
+
+  async runInitialSetups(server: Server): Promise<boolean> {
+    if (server.data.sdrEnable) {
+      const rcon = new Rcon({
+        host: server.ip,
+        port: server.port,
+        password: server.data.rconPassword,
+      });
+
+      await rcon.connect();
+      const status = await rcon.send('status');
+      this.logger.debug(status);
+      await rcon.disconnect();
+
+      const [ip, port] = status
+        .split("\n")
+        .filter(line => line.indexOf("udp/ip") === 0)[0]
+        .split(" ")[3]
+        .split(":")
+
+      this.logger.debug(`SDR Info ${ip}:${port}`);
+
+      server.data.sdrIp = ip;
+      server.data.sdrPort = parseInt(port);
+      server.data.sdrTvPort = parseInt(port) + 1;
+      server.markModified("data");
+      await server.save();
+    }
+
+    return true
   }
 
   /**

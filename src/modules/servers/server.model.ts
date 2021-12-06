@@ -44,6 +44,9 @@ export class Server extends Document {
     servername?: string
     rconPassword?: string
     sdrEnable?: boolean
+    sdrIp?: string
+    sdrPort?: number
+    sdrTvPort?: number
     tvEnable?: boolean
     tvPassword?: string
     tvPort?: number
