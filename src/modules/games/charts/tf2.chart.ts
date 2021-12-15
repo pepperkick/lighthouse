@@ -32,12 +32,16 @@ export class Tf2Chart extends GameChart {
 		name = name.split('"').join("")
 
 		let args = "./start.sh"
-		args += ` --hatch-address '${server.data.hatchAddress}' --hatch-password '${server.data.hatchPassword}'`
+		args += ` --hatch-address '${server.data.hatchAddress}'`
+		args += ` --hatch-password '${server.data.hatchPassword}'`
+		args += ` --hatch-lighthouse-id '${server._id}'`
+		args += ` --hatch-elastic-host '${config.hatch.elasticUrl}'`
+		args += ` --hatch-elastic-chat-index '${config.hatch.elasticChatIndex}'`
 		args += ` +servercfgfile server -condebug`;
 		args += ` +hostname '${name}'`;
 		args += ` +sv_password '${server.data.password || ""}'`;
 		args += ` +rcon_password '${server.data.rconPassword || ""}'`;
-		args += ` +map '${server.data.map || "cp_badlands"}'`;
+		args += ` +map 'cp_badlands'`;
 		args += ` +port ${server.port || "27015"}`;
 
 		if (server.ip)

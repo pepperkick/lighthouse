@@ -225,7 +225,9 @@ export class ServersService {
       closeMinPlayers: options.data?.closeMinPlayers || 2,
       closeIdleTime: options.data?.closeIdleTime || 900,
       closeWaitTime: options.data?.closeWaitTime || 300,
-      callbackUrl: options.data?.callbackUrl || ""
+      callbackUrl: options.data?.callbackUrl || "",
+      gitRepository: options.data?.gitRepository || "",
+      gitDeployKey: options.data?.gitDeployKey || ""
     }
 
     if (server.game === Game.TF2) {
@@ -261,7 +263,7 @@ export class ServersService {
       throw new HttpException("Server has been already closed", 450)
 
     if (server.status === ServerStatus.CLOSING || server.status === ServerStatus.DEALLOCATING)
-      throw new BadRequestException("Server is closing")
+      throw new HttpException("Server is closing", 451)
 
     if (!server.closeAt) {
       server.closeAt = new Date();
@@ -473,7 +475,7 @@ export class ServersService {
       });
 
       this.logger.log(`Received first heartbeat for server ${server.id}`);
-      await this.runInitialSetups(server);
+      await this.runInitialSetup(server);
       await this.updateStatusAndNotify(server, ServerStatus.IDLE);
       await this.setCloseTime(server, 0);
     } catch (exception) {
@@ -482,14 +484,14 @@ export class ServersService {
     }
   }
 
-  async runInitialSetups(server: Server): Promise<boolean> {
-    if (server.data.sdrEnable) {
-      const rcon = new Rcon({
-        host: server.ip,
-        port: server.port,
-        password: server.data.rconPassword,
-      });
+  async runInitialSetup(server: Server): Promise<boolean> {
+    const rcon = new Rcon({
+      host: server.ip,
+      port: server.port,
+      password: server.data.rconPassword,
+    });
 
+    if (server.data.sdrEnable) {
       await rcon.connect();
       const status = await rcon.send('status');
       this.logger.debug(status);
@@ -508,6 +510,12 @@ export class ServersService {
       server.data.sdrTvPort = parseInt(port) + 1;
       server.markModified("data");
       await server.save();
+    }
+
+    if (server.data.map && server.data.map !== "cp_badlands") {
+      await rcon.connect();
+      await rcon.send(`changelevel ${server.data.map}`);
+      await rcon.disconnect();
     }
 
     return true
