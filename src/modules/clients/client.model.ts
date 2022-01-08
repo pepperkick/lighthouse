@@ -23,7 +23,8 @@ export class Client extends Document {
     close_wait_limit: number,
     limit: number,
     regions: { [key: string]: RegionAccess },
-    providers: string[]
+    providers: string[],
+    monitorServers: boolean
   }
 
   @Prop({ type: Object })

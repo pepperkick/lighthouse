@@ -109,6 +109,8 @@ export class ServersService {
    * @param client
    */
   async getActiveServersByClient(client: Client): Promise<Server[]> {
+    if (client.access.monitorServers)
+      return this.repository.find({ $or: SERVER_ACTIVE_STATUS_CONDITION });
     return this.repository.find({ client: client.id, $or: SERVER_ACTIVE_STATUS_CONDITION });
   }
 
@@ -136,6 +138,8 @@ export class ServersService {
    * @param client
    */
   async getAllServersByClient(client: Client): Promise<Server[]> {
+    if (client.access.monitorServers)
+      return this.repository.find({ $or: SERVER_ACTIVE_STATUS_CONDITION });
     return this.repository.find({ client: client.id }).limit(50);
   }
 
