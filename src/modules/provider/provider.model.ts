@@ -76,6 +76,9 @@ export class Provider extends Document {
 		vultrApiKey?: string
 		vultrPlanId?: number
 		vultrLocationId?: number
+		vultrSSHAccessKey?: string
+		vultrSSHKeys?: string[]
+		vultrImageName?: string
 
 		// BinaryLane
 		binarylaneApiKey?: string

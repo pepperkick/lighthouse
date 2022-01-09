@@ -67,7 +67,7 @@ export class Tf2Chart extends GameChart {
 			...server.data,
 			servername: options.data?.servername || config.instance.hostname || "Lighthouse Bookable",
 			password: options.data?.password || "",
-			rconPassword: options.data?.rconPassword || "",
+			rconPassword: options.data?.rconPassword || "*",
 			sdrEnable: options.data?.sdrEnable,
 			tvPassword: options.data?.tvPassword || "",
 			tvPort: 27020,

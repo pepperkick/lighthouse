@@ -37,7 +37,7 @@
     "@types/elasticsearch": "^5.0.36",
     "@types/gamedig": "^3.0.0",
     "@types/got": "^9.6.11",
-    "@vultr/vultr-node": "^1.0.1",
+    "@vultr/vultr-node": "^2.3.0",
     "await-exec": "^0.1.2",
     "await-sleep": "0.0.1",
     "axios": "^0.19.2",
