@@ -427,21 +427,6 @@ export class ServersService {
       setTimeout(async () => await this.checkForHeartbeat(server), 100);
     }
 
-    // Check for enough players in active servers
-    const activeServers = await this.repository.find({ $or: [
-        { status: ServerStatus.UNKNOWN },
-        { status: ServerStatus.IDLE },
-        { status: ServerStatus.RUNNING }
-      ]
-    });
-    this.logger.debug(`Found ${activeServers.length} running servers...`)
-    for (const server of activeServers) {
-      setTimeout(async () => {
-        if (![ServerStatus.CLOSING, ServerStatus.CLOSED].includes(server.status))
-          await this.checkForMinimumPlayers(server)
-      }, 100);
-    }
-
     // Check for close times in idle servers
     const idleServers = await this.repository.find({ $or: [
         { status: ServerStatus.UNKNOWN },
@@ -461,6 +446,20 @@ export class ServersService {
           this.createJob(server, "destroy")
         }, 100);
       }
+    }
+
+    // Check for enough players in active servers
+    const activeServers = await this.repository.find({ $or: [
+        { status: ServerStatus.UNKNOWN },
+        { status: ServerStatus.IDLE },
+        { status: ServerStatus.RUNNING }
+      ]
+    });
+    this.logger.debug(`Found ${activeServers.length} running servers...`)
+    for (const server of activeServers) {
+      setTimeout(async () => {
+        await this.checkForMinimumPlayers(server)
+      }, 100);
     }
   }
 
