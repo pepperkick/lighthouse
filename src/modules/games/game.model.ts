@@ -5,24 +5,24 @@ import { Type } from 'gamedig';
 @Schema()
 export class Game extends Document {
   @Prop({ type: String })
-  slug: string
+  slug: string;
 
   @Prop({ type: String })
-  name: string
+  name: string;
 
   @Prop({ type: Object })
   data: {
-    queryType: Type
+    queryType: Type;
     providerOverrides: {
-      kubernetes: any
-      gcp: any
-      azure: any
-      digital_ocean: any
-      vultr: any
-      binarylane: any
-      linode: any
-    }
-  }
+      kubernetes: any;
+      gcp: any;
+      azure: any;
+      digital_ocean: any;
+      vultr: any;
+      binarylane: any;
+      linode: any;
+    };
+  };
 }
 
 export const GameSchema = SchemaFactory.createForClass(Game);

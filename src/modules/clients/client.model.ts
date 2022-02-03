@@ -2,78 +2,79 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
 interface RegionAccess {
-  limit: number
+  limit: number;
 }
 
 @Schema()
 export class Client extends Document {
   @Prop({ type: String })
-  id: string
+  id: string;
 
   @Prop({ type: String })
-  secret: string
+  secret: string;
 
   @Prop({ type: String })
-  name: string
+  name: string;
 
   @Prop({ type: Object })
   access: {
-    games: string[],
-    close_timer_limit: number,
-    close_wait_limit: number,
-    limit: number,
-    regions: { [key: string]: RegionAccess },
-    providers: string[],
-    monitorServers: boolean
-  }
+    games: string[];
+    close_timer_limit: number;
+    close_wait_limit: number;
+    limit: number;
+    regions: { [key: string]: RegionAccess };
+    providers: string[];
+    monitorServers: boolean;
+  };
 
   @Prop({ type: Object })
   noAccess: {
-    providers: string[]
-  }
+    providers: string[];
+  };
 
-  hasGameAccess: (string) => boolean
-  hasRegionAccess: (string) => boolean
-  hasProviderAccess: (string) => boolean
-  getRegionLimit: (string) => number
-  getLimit: () => number
-  getCloseTimerLimit: () => number
-  getWaitTimerLimit: () => number
+  hasGameAccess: (string) => boolean;
+  hasRegionAccess: (string) => boolean;
+  hasProviderAccess: (string) => boolean;
+  getRegionLimit: (string) => number;
+  getLimit: () => number;
+  getCloseTimerLimit: () => number;
+  getWaitTimerLimit: () => number;
 }
 
 export const ClientSchema = SchemaFactory.createForClass(Client);
 
-
-ClientSchema.methods.hasGameAccess = function (game: string): boolean {
+ClientSchema.methods.hasGameAccess = function(game: string): boolean {
   return this.access.games.includes(game);
-}
+};
 
-ClientSchema.methods.hasRegionAccess = function (region: string): boolean {
+ClientSchema.methods.hasRegionAccess = function(region: string): boolean {
   return this.access.regions.hasOwnProperty(region);
-}
+};
 
-ClientSchema.methods.hasProviderAccess = function (provider: string): boolean {
+ClientSchema.methods.hasProviderAccess = function(provider: string): boolean {
   // Check if client cannot access the provider
   if (this.noAccess.providers.includes(provider)) return false;
 
   // Check if client has a access list, if yes then is the provider present
-  return !(this.access.providers &&
+  return !(
+    this.access.providers &&
     this.access.providers.length !== 0 &&
-    !this.access.providers.includes(provider));
-}
+    !this.access.providers.includes(provider)
+  );
+};
 
-ClientSchema.methods.getRegionLimit = function (region: string): number {
-  return this.access.regions[region]?.limit
-}
+ClientSchema.methods.getRegionLimit = function(region: string): number {
+  return this.access.regions[region]?.limit;
+};
 
-ClientSchema.methods.getLimit = function (): number {
-  return this.access.limit
-}
+ClientSchema.methods.getLimit = function(): number {
+  return this.access.limit;
+};
 
-ClientSchema.methods.getCloseTimerLimit = function (): number {
-  return this.access.close_timer_limit
-}
+ClientSchema.methods.getCloseTimerLimit = function(): number {
+  return this.access.close_timer_limit;
+};
 
-ClientSchema.methods.getWaitTimerLimit = function (): number {
-  return this.access.close_wait_limit
-}
+ClientSchema.methods.getWaitTimerLimit = function(): number {
+  return this.access.close_wait_limit;
+};

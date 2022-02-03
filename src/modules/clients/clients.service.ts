@@ -3,15 +3,13 @@ import { Model } from 'mongoose';
 import { Client } from './client.model';
 
 export class ClientsService {
-  constructor(
-    @InjectModel(Client.name) private Client: Model<Client>,
-  ) { }
+  constructor(@InjectModel(Client.name) private Client: Model<Client>) {}
 
   /**
    * Get client object by secret
    * */
   async getBySecret(secret: string): Promise<Client> {
-    return this.Client.findOne({ secret })
+    return this.Client.findOne({ secret });
   }
 
   /**

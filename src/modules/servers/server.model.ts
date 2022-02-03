@@ -6,78 +6,78 @@ import { Game } from '../../objects/game.enum';
 @Schema()
 export class Server extends Document {
   @Prop({ type: String, required: true })
-  client: string
+  client: string;
 
   @Prop({ type: String, required: true })
-  game: Game
+  game: Game;
 
   @Prop({ type: Date })
-  createdAt: Date
+  createdAt: Date;
 
   @Prop({ type: Date })
-  closeAt: Date
+  closeAt: Date;
 
   @Prop({ type: Number })
-  port: number
+  port: number;
 
   @Prop({ type: String })
-  ip: string
+  ip: string;
 
   @Prop({ type: String })
-  region: string
+  region: string;
 
   @Prop({ required: true })
-  provider: string
+  provider: string;
 
   @Prop({ type: String })
-  image: string
+  image: string;
 
   @Prop({ type: String })
-  status: ServerStatus
+  status: ServerStatus;
 
   @Prop({ type: Object })
   data: {
     // For TF2, Valheim
-    password?: string
+    password?: string;
 
     // For TF2
-    servername?: string
-    rconPassword?: string
-    sdrEnable?: boolean
-    sdrIp?: string
-    sdrPort?: number
-    sdrTvPort?: number
-    tvEnable?: boolean
-    tvPassword?: string
-    tvPort?: number
-    tvName?: string
-    map?: string
+    servername?: string;
+    rconPassword?: string;
+    sdrEnable?: boolean;
+    sdrIp?: string;
+    sdrPort?: number;
+    sdrTvPort?: number;
+    tvEnable?: boolean;
+    tvPassword?: string;
+    tvPort?: number;
+    tvName?: string;
+    map?: string;
 
     // For Minecraft
-    rconPort?: number
+    rconPort?: number;
 
     // For Valheim
-    world?: string
+    world?: string;
 
     // For Status Updates
-    callbackUrl?: string
+    callbackUrl?: string;
 
     // For Auto Close
-    closeMinPlayers?: number
-    closeIdleTime?: number
-    closeWaitTime?: number
+    closeMinPlayers?: number;
+    closeIdleTime?: number;
+    closeWaitTime?: number;
 
     // For Git Repository
-    gitRepository?: string
-    gitDeployKey?: string
+    gitRepository?: string;
+    gitDeployKey?: string;
 
     // For Hatch
-    hatchAddress?: string
-    hatchPassword?: string
-    hatchElasticURL?: string
-    hatchElasticChatIndex?: string
-    hatchElasticLogsIndex?: string
-  }
+    hatchAddress?: string;
+    hatchPassword?: string;
+    hatchElasticURL?: string;
+    hatchElasticChatIndex?: string;
+    hatchElasticLogsIndex?: string;
+  };
 }
 
 export const ServerSchema = SchemaFactory.createForClass(Server);

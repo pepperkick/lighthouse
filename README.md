@@ -1,5 +1,5 @@
 # Lighthouse
-Modular game server manager. Abstracts multiple providers to easily start a new server.
+A modular game server manager. It abstracts multiple providers to easily start a new server.
 
 Supported Providers
 - Kubernetes Cluster
@@ -18,7 +18,17 @@ Supported Providers
     "tv_name": "",                // SourceTV name (eg: QixTV)
     "hostname": ""                // Default server name (eg: Qixalite Bookable)
   },
-  "label": ""                     // Label to use for storing data in deployment (eg: "com.qixalite.lighthouse")
+  "label": "",                    // Label to use for storing data in deployment (eg: "com.qixalite.lighthouse")
+  "hatch": {
+    "elasticUrl": "",             // Elasticsearch URL
+    "elasticChatIndex": "",       // Index to use for storing chat logs
+    "elasticLogsIndex": ""        // Index to use for storing server logs (Currently not used)
+  },
+  "monitoring": {
+    "enabled": true,              // Enable monitoring of servers to detect idle servers
+    "interval": 30                // Interval to check for idle servers (in seconds)
+  },
+  "kubeConfig": ""                // JSON escaped string of kubeconfig. This will be used to spawn jobs when a request is made
 }
 ```
 
@@ -30,7 +40,7 @@ Supported Providers
   slug: "",
   name: "",
   data: {
-    // Type to use during server queries
+    // Game type to use during server queries
     queryType: "string",
     
     // Override provider metadata depending on provider type
@@ -145,6 +155,14 @@ Supported Providers
 **GET /api/v1/providers/region/:region**
 
 Get a list of providers that the client has access to and can handle a request
+
+Headers
+```json5
+{
+    // Client's secret
+    "Authorization": "Bearer <secret>"
+}
+```
 
 Response
 ```json
@@ -265,6 +283,7 @@ Status Code
 Status Code: 200 (Successfully created a request)
 Status Code: 400 (Cannot create the request)
 Status Code: 401 (Unauthorized)
+Status Code: 403 (Forbidden)
 ```
 
 **GET /api/v1/servers/:id**
@@ -322,10 +341,7 @@ Status Code
 ```
 Status Code: 200 (Successfully created a request)
 Status Code: 400 (Cannot close the request)
+Status Code: 401 (Unauthorized)
+Status Code: 403 (Forbidden)
 Status Code: 404 (Server not found)
 ```
-
-
-## Copyright Qixalite
-
-Explicit permission must be given to copy, modify, distribute and use this software and/or its documentation for any purpose. Permission must be granted by Qixalite.

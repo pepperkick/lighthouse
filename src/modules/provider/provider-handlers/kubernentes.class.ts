@@ -10,115 +10,128 @@ import { ValheimChart } from '../../games/charts/valheim.chart';
 import { MinecraftChart } from '../../games/charts/minecraft.chart';
 import * as config from '../../../../config.json';
 
-const label = config.instance.label
+const label = config.instance.label;
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { KubeConfig } = require('kubernetes-client')
+const { KubeConfig } = require('kubernetes-client');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const Request = require('kubernetes-client/backends/request')
+const Request = require('kubernetes-client/backends/request');
 const kubes = {};
 
 export interface KubeData {
-	inUsePorts: number[]
+  inUsePorts: number[];
 }
 
-export class KubernetesHandler extends Handler {	
-	kube: ApiClient.ApiRoot;
-	namespace: string
-	private data: KubeData;
+export class KubernetesHandler extends Handler {
+  kube: ApiClient.ApiRoot;
+  namespace: string;
+  private data: KubeData;
 
-	constructor(provider: Provider, game: Game, data: KubeData) {
-		super(provider);
+  constructor(provider: Provider, game: Game, data: KubeData) {
+    super(provider);
 
-		provider.metadata = { ...provider.metadata, ...game.data.providerOverrides.kubernetes };
+    provider.metadata = {
+      ...provider.metadata,
+      ...game.data.providerOverrides.kubernetes,
+    };
 
-		this.data = data;
-		this.namespace = provider.metadata.kubeNamespace;
+    this.data = data;
+    this.namespace = provider.metadata.kubeNamespace;
 
-		if (kubes[provider._id]) 
-			this.kube = kubes[provider._id];
-		else {
-			const kubeconfig = new KubeConfig()
-			kubeconfig.loadFromString(provider.metadata.kubeConfig)
-			const backend = new Request({ kubeconfig })
-			const kube = new ApiClient.Client1_13({ backend, version: '1.13' });
-	
-			kubes[provider.id] = kube;
-	
-			this.kube = kubes[provider._id];
-		}
-	}
+    if (kubes[provider._id]) this.kube = kubes[provider._id];
+    else {
+      const kubeconfig = new KubeConfig();
+      kubeconfig.loadFromString(provider.metadata.kubeConfig);
+      const backend = new Request({ kubeconfig });
+      const kube = new ApiClient.Client1_13({ backend, version: '1.13' });
 
-	async createInstance(server: Server): Promise<Server> {
-		try {
-			const hostname = this.provider.metadata.kubeHostname;
-			server.image = server.image || this.provider.metadata.image
-			server.ip = this.provider.metadata.kubeIp;
-			server.port = await this.getFreePort()
+      kubes[provider.id] = kube;
 
-			switch (server.game) {
-				case GameEnum.TF2:
-					server.data.tvPort = server.port + 1
-					server.data.hatchAddress = `:${server.port + 2}`
-					break
-				case GameEnum.VALHEIM:
-					break
-				case GameEnum.MINECRAFT:
-					break
-			}
+      this.kube = kubes[provider._id];
+    }
+  }
 
-			this.logger.debug(`Assigned address for id ${server.id} ${this.provider.metadata.kubeIp}:${server.port}`);
+  async createInstance(server: Server): Promise<Server> {
+    try {
+      const hostname = this.provider.metadata.kubeHostname;
+      server.image = server.image || this.provider.metadata.image;
+      server.ip = this.provider.metadata.kubeIp;
+      server.port = await this.getFreePort();
 
-			server.markModified("data");
-			await server.save();
+      switch (server.game) {
+        case GameEnum.TF2:
+          server.data.tvPort = server.port + 1;
+          server.data.hatchAddress = `:${server.port + 2}`;
+          break;
+        case GameEnum.VALHEIM:
+          break;
+        case GameEnum.MINECRAFT:
+          break;
+      }
 
-			let chart;
-			if (server.game === GameEnum.TF2) {
-				chart = Tf2Chart.renderDeployment(server, hostname, label);
-			} else if (server.game === GameEnum.VALHEIM) {
-				chart = ValheimChart.renderDeployment(server, hostname, label);
-			} else if (server.game === GameEnum.MINECRAFT) {
-				chart = MinecraftChart.renderDeployment(server, hostname, label);
-			}
+      this.logger.debug(
+        `Assigned address for id ${server.id} ${this.provider.metadata.kubeIp}:${server.port}`,
+      );
 
-			console.log(chart)
+      server.markModified('data');
+      await server.save();
 
-			await this.kube.apis.app.v1
-				.namespaces(this.namespace).deployments.post({ body: yaml.load(chart) });
+      let chart;
+      if (server.game === GameEnum.TF2) {
+        chart = Tf2Chart.renderDeployment(server, hostname, label);
+      } else if (server.game === GameEnum.VALHEIM) {
+        chart = ValheimChart.renderDeployment(server, hostname, label);
+      } else if (server.game === GameEnum.MINECRAFT) {
+        chart = MinecraftChart.renderDeployment(server, hostname, label);
+      }
 
-			return server;
-		} catch (error) {
-			this.logger.error("Failed to create kubernetes instance", error);
-		}
-	}
+      console.log(chart);
 
-	async destroyInstance(server: Server): Promise<void> {
-		try {
-			await this.kube.apis.app.v1
-				.namespaces(this.namespace).deployments(`${label}-${server._id}`).delete();
-		} catch (error) {
-			this.logger.error(`Failed to destroy kubernetes instance`, error);
-		}
-	}
+      await this.kube.apis.app.v1
+        .namespaces(this.namespace)
+        .deployments.post({ body: yaml.load(chart) });
 
-	/**
-	 * Get free server game port
-	 */
-	async getFreePort(): Promise<number> {
-		const inUsePorts = this.data.inUsePorts;
-		const port = this.getRandomPort();
+      return server;
+    } catch (error) {
+      this.logger.error('Failed to create kubernetes instance', error);
+    }
+  }
 
-		if (inUsePorts.includes(port))
-			return this.getFreePort();
+  async destroyInstance(server: Server): Promise<void> {
+    try {
+      await this.kube.apis.app.v1
+        .namespaces(this.namespace)
+        .deployments(`${label}-${server._id}`)
+        .delete();
+    } catch (error) {
+      this.logger.error(`Failed to destroy kubernetes instance`, error);
+    }
+  }
 
-		return port;
-	}
+  /**
+   * Get free server game port
+   */
+  async getFreePort(): Promise<number> {
+    const inUsePorts = this.data.inUsePorts;
+    const port = this.getRandomPort();
 
-	/**
-	 * Get a random port
-	 */
-	getRandomPort(): number {
-		const portGap = 8;
-		return ((Math.floor(((Math.random() * (
-			this.provider.metadata.kubePorts.max - this.provider.metadata.kubePorts.min) + this.provider.metadata.kubePorts.min)) / portGap)) * portGap);
-	}
+    if (inUsePorts.includes(port)) return this.getFreePort();
+
+    return port;
+  }
+
+  /**
+   * Get a random port
+   */
+  getRandomPort(): number {
+    const portGap = 8;
+    return (
+      Math.floor(
+        (Math.random() *
+          (this.provider.metadata.kubePorts.max -
+            this.provider.metadata.kubePorts.min) +
+          this.provider.metadata.kubePorts.min) /
+          portGap,
+      ) * portGap
+    );
+  }
 }

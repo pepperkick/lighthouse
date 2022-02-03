@@ -9,11 +9,9 @@ import { GamesModule } from '../games/games.module';
   imports: [
     ProviderModule,
     GamesModule,
-    MongooseModule.forFeature([
-      { name: Server.name, schema: ServerSchema }
-    ])
+    MongooseModule.forFeature([{ name: Server.name, schema: ServerSchema }]),
   ],
-  providers: [ ServersService ],
-  exports: [ ServersService ]
+  providers: [ServersService],
+  exports: [ServersService],
 })
 export class ServersModule {}
