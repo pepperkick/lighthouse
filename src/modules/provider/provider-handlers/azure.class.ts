@@ -27,6 +27,10 @@ export class AzureHandler extends Handler {
     });
     server = _server;
 
+    // Workaround for azure script removing single quotes
+    const _script = script.replace(/'/g, '"');
+    this.logger.debug(`Script: ${_script}`);
+
     try {
       const metadata = this.provider.metadata;
       const group = `${label}-${server.id}`;
@@ -43,7 +47,7 @@ export class AzureHandler extends Handler {
         `az vm create --resource-group ${group} --name ${group} --image '${metadata.azureImage}' --admin-username lighthouse --admin-password '${metadata.azureRootPassword}'`,
       );
       await exec(
-        `az vm run-command invoke --resource-group ${group} --name ${group} --command-id RunShellScript --scripts '${script}'`,
+        `az vm run-command invoke --resource-group ${group} --name ${group} --command-id RunShellScript --scripts '${_script}'`,
       );
       await exec(
         `az network nsg rule create --resource-group ${group} --nsg-name ${group}NSG --name allow-game --access Allow --direction Inbound --source-port-ranges '*' --source-address-prefixes '*' --destination-port-ranges 27015 27020 --destination-address-prefixes '*' --protocol '*' --priority 2000`,
