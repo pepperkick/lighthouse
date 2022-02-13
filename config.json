@@ -8,7 +8,12 @@
   "hatch": {
     "elasticUrl": "",
     "elasticChatIndex": "",
+    "elasticRconIndex": "",
     "elasticLogsIndex": ""
+  },
+  "vanguard": {
+    "api": "",
+    "secret": ""
   },
   "label": "",
   "monitoring": {

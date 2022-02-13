@@ -41,6 +41,9 @@ export class Tf2Chart extends GameChart {
     args += ` --hatch-lighthouse-id '${server._id}'`;
     args += ` --hatch-elastic-host '${config.hatch.elasticUrl}'`;
     args += ` --hatch-elastic-chat-index '${config.hatch.elasticChatIndex}'`;
+    args += ` --hatch-elastic-rcon-index '${config.hatch.elasticRconIndex}'`;
+    args += ` --hatch-vanguard-api '${config.vanguard.api}'`;
+    args += ` --hatch-vanguard-secret '${config.vanguard.secret}'`;
     args += ` +servercfgfile server -condebug`;
     args += ` +hostname '${name}'`;
     args += ` +sv_password '${server.data.password || ''}'`;
