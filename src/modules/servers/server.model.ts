@@ -52,6 +52,7 @@ export class Server extends Document {
     tvPort?: number;
     tvName?: string;
     map?: string;
+    config?: string;
 
     // For Minecraft
     rconPort?: number;
@@ -77,6 +78,7 @@ export class Server extends Document {
     hatchElasticURL?: string;
     hatchElasticChatIndex?: string;
     hatchElasticLogsIndex?: string;
+    hatchElasticRconIndex?: string;
   };
 }
 

@@ -24,6 +24,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
 import * as process from 'process';
+import * as sleep from 'await-sleep';
 import { Game } from '../../objects/game.enum';
 import { Tf2Chart } from '../games/charts/tf2.chart';
 
@@ -556,6 +557,8 @@ export class ServersService {
   }
 
   async runInitialSetup(server: Server): Promise<boolean> {
+    if (server.game !== Game.TF2) return;
+
     const rcon = new Rcon({
       host: server.ip,
       port: server.port,
@@ -586,6 +589,14 @@ export class ServersService {
     if (server.data.map && server.data.map !== 'cp_badlands') {
       await rcon.connect();
       await rcon.send(`changelevel ${server.data.map}`);
+      await rcon.disconnect();
+      // TODO: Handle map change check
+      await sleep(30 * 1000);
+    }
+
+    if (server.data.config) {
+      await rcon.connect();
+      await rcon.send(`exec ${server.data.config}`);
       await rcon.disconnect();
     }
 

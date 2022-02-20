@@ -82,11 +82,13 @@ export class Tf2Chart extends GameChart {
       tvPort: 27020,
       tvEnable: true,
       tvName: options.data?.tvName || config.instance.tvName || 'LighthouseTV',
+      config: options.data?.config,
       map: options.data?.map || 'cp_badlands',
       hatchAddress: options.data?.hatchAddress || ':27017',
       hatchElasticURL: config.hatch.elasticUrl,
       hatchElasticChatIndex: config.hatch.elasticChatIndex,
       hatchElasticLogsIndex: config.hatch.elasticLogsIndex,
+      hatchElasticRconIndex: config.hatch.elasticRconIndex,
     };
 
     if (server.data.password === '*')
