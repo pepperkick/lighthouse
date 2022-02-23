@@ -1,10 +1,13 @@
 # Lighthouse
+
 A modular game server manager. It abstracts multiple providers to easily start a new server.
 
 Supported Providers
+
 - Kubernetes Cluster
-- Google Cloud
+- Google Cloud Platform
 - Microsoft Azure
+- Amazon Web Services
 - Digital Ocean
 - Linode
 - Vultr
@@ -13,28 +16,39 @@ Supported Providers
 ## Config
 
 ```json5
-{  
-  "instance": {                   // Configuration to pass server instance
-    "tv_name": "",                // SourceTV name (eg: QixTV)
-    "hostname": ""                // Default server name (eg: Qixalite Bookable)
+{
+  "instance": {
+    // Configuration to pass server instance
+    "tv_name": "",
+    // SourceTV name (eg: QixTV)
+    "hostname": ""
+    // Default server name (eg: Qixalite Bookable)
   },
-  "label": "",                    // Label to use for storing data in deployment (eg: "com.qixalite.lighthouse")
+  "label": "",
+  // Label to use for storing data in deployment (eg: "com.qixalite.lighthouse")
   "hatch": {
-    "elasticUrl": "",             // Elasticsearch URL
-    "elasticChatIndex": "",       // Index to use for storing chat logs
-    "elasticLogsIndex": ""        // Index to use for storing server logs (Currently not used)
+    "elasticUrl": "",
+    // Elasticsearch URL
+    "elasticChatIndex": "",
+    // Index to use for storing chat logs
+    "elasticLogsIndex": ""
+    // Index to use for storing server logs (Currently not used)
   },
   "monitoring": {
-    "enabled": true,              // Enable monitoring of servers to detect idle servers
-    "interval": 30                // Interval to check for idle servers (in seconds)
+    "enabled": true,
+    // Enable monitoring of servers to detect idle servers
+    "interval": 30
+    // Interval to check for idle servers (in seconds)
   },
-  "kubeConfig": ""                // JSON escaped string of kubeconfig. This will be used to spawn jobs when a request is made
+  "kubeConfig": ""
+  // JSON escaped string of kubeconfig. This will be used to spawn jobs when a request is made
 }
 ```
 
 ## Database
 
 ### Game
+
 ```json5
 {
   slug: "",
@@ -42,7 +56,6 @@ Supported Providers
   data: {
     // Game type to use during server queries
     queryType: "string",
-    
     // Override provider metadata depending on provider type
     providerOverrides: {
       kubernetes: {},
@@ -56,6 +69,7 @@ Supported Providers
 ```
 
 ### Provider
+
 ```json5
 {
   _id: "",
@@ -63,29 +77,29 @@ Supported Providers
   limit: 0,
   region: "",
   priority: 0,
-  metadata: { 
+  metadata: {
     // Common 
-    image: "", 
-    hidden: false,  
+    image: "",
+    hidden: false,
     autoClose: {
       time: 0,
       min: 0
     },
-    
     // Kubernetes
     kubeConfig: "",
-    kubePorts: { min: 0, max: 0 },
+    kubePorts: {
+      min: 0,
+      max: 0
+    },
     kubeIp: "",
     kubeHostname: "",
     kubeNamespace: "",
-    
     // Google Cloud
     gcpConfig: "",
     gcpRegion: "",
     gcpZone: "",
     gcpVmImage: "",
     gcpMachineType: "",
-    
     // Azure
     azureTenantId: "",
     azureUsername: "",
@@ -96,14 +110,12 @@ Supported Providers
     azureImage: "",
     azureRootPassword: "",
     azureMachineType: "",
-    
     // Digital Ocean
     digitalOceanToken: "",
     digitalOceanRegion: "",
     digitalOceanMachineType: "",
     digitalOceanMachineImage: "",
     digitalOceanSSHKeyId: 0,
-    
     // Vultr
     vultrApiKey: "",
     vultrPlanId: 0,
@@ -113,27 +125,35 @@ Supported Providers
 ```
 
 ### Client
+
 ```json5
 {
   id: "",
   secret: "",
   name: "",
   access: {
-    games: [ "Game" ],
+    games: [
+      "Game"
+    ],
     regions: {
       slug: {
         limit: 0
       }
     },
-    providers: [ "Provider" ]
+    providers: [
+      "Provider"
+    ]
   },
   noAccess: {
-    providers: [ "Provider" ]
+    providers: [
+      "Provider"
+    ]
   }
 }
 ```
 
 ### Server
+
 ```json5
 {
   client: "Client",
@@ -157,14 +177,16 @@ Supported Providers
 Get a list of providers that the client has access to and can handle a request
 
 Headers
+
 ```json5
 {
-    // Client's secret
-    "Authorization": "Bearer <secret>"
+  // Client's secret
+  "Authorization": "Bearer <secret>"
 }
 ```
 
 Response
+
 ```json
 [
   "sydney_kubernetes_1",
@@ -177,14 +199,16 @@ Response
 Get list of servers. By default, it will show list of active servers only. Use `all` query to get all servers.
 
 Headers
+
 ```json5
 {
-    // Client's secret
-    "Authorization": "Bearer <secret>"
+  // Client's secret
+  "Authorization": "Bearer <secret>"
 }
 ```
 
 Query
+
 ```json5
 {
   // Fetch all servers
@@ -193,6 +217,7 @@ Query
 ```
 
 Response
+
 ```json5
 [
   {
@@ -215,18 +240,18 @@ Response
 ```
 
 Status Code
+
 ```
 Status Code: 200
 Status Code: 401 (Unauthorized)
 ```
-
-
 
 **POST api/v1/servers**
 
 Create a new server request
 
 Headers
+
 ```json5
 {
   // Client's secret
@@ -235,23 +260,20 @@ Headers
 ```
 
 Body
+
 ```json5
 {
   // Game to create server for
   "game": "tf2",
-  
   // Region of the server
   "region": "sydney",
-  
   // Provider that will handle the request
   "provider": "sydney_kubernetes_1",
-
   // Set preferences for auto closing server
   "closePref": {
     "minPlayers": 1,
     "idleTime": 300
   },
-  
   // Custom data to store with the request
   "data": {
     "name": "PepperKick"
@@ -260,6 +282,7 @@ Body
 ```
 
 Response
+
 ```json5
 {
   "_id": "5ffdec8ba4440d577c296a38",
@@ -278,7 +301,9 @@ Response
   },
 }
 ```
+
 Status Code
+
 ```
 Status Code: 200 (Successfully created a request)
 Status Code: 400 (Cannot create the request)
@@ -291,6 +316,7 @@ Status Code: 403 (Forbidden)
 Get server info
 
 Headers
+
 ```json5
 {
   // Client's secret
@@ -299,6 +325,7 @@ Headers
 ```
 
 Response
+
 ```json5
 {
   "_id": "5ffdf1564314b70c2015c0d9",
@@ -320,6 +347,7 @@ Response
 ```
 
 Status Code
+
 ```
 Status Code: 200
 Status Code: 404 (Server not found)
@@ -330,6 +358,7 @@ Status Code: 404 (Server not found)
 Delete a booking
 
 Headers
+
 ```json5
 {
   // Client's secret
@@ -338,6 +367,7 @@ Headers
 ```
 
 Status Code
+
 ```
 Status Code: 200 (Successfully created a request)
 Status Code: 400 (Cannot close the request)

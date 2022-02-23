@@ -489,7 +489,7 @@ export class ServersService {
       status: ServerStatus.WAITING,
     });
     for (const server of waitingServers) {
-      setTimeout(async () => await this.checkForHeartbeat(server), 100);
+      setTimeout(async () => await this.checkForHeartbeat(server), 1);
     }
 
     // Check for close times in idle servers
@@ -510,7 +510,7 @@ export class ServersService {
         // Process the close request
         setTimeout(() => {
           this.createJob(server, 'destroy');
-        }, 100);
+        }, 1);
       }
     }
 
@@ -526,7 +526,7 @@ export class ServersService {
     for (const server of activeServers) {
       setTimeout(async () => {
         await this.checkForMinimumPlayers(server);
-      }, 100);
+      }, 1);
     }
   }
 

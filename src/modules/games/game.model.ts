@@ -16,6 +16,7 @@ export class Game extends Document {
     providerOverrides: {
       kubernetes: any;
       gcp: any;
+      aws: any;
       azure: any;
       digital_ocean: any;
       vultr: any;

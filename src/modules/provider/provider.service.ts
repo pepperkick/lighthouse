@@ -15,6 +15,7 @@ import { Game } from '../games/game.model';
 import { Client } from '../clients/client.model';
 import { BinaryLaneHandler } from './provider-handlers/binarylane.class';
 import { LinodeHandler } from './provider-handlers/linode.class';
+import { AWSHandler } from './provider-handlers/aws.class';
 
 @Injectable()
 export class ProviderService {
@@ -91,6 +92,8 @@ export class ProviderService {
         );
       case ProviderType.GCloud:
         return new GCloudHandler(provider, game).createInstance(server);
+      case ProviderType.AWS:
+        return new AWSHandler(provider, game).createInstance(server);
       case ProviderType.Azure:
         return new AzureHandler(provider, game).createInstance(server);
       case ProviderType.DigitalOcean:
@@ -124,6 +127,8 @@ export class ProviderService {
         );
       case ProviderType.GCloud:
         return new GCloudHandler(provider, game).destroyInstance(server);
+      case ProviderType.AWS:
+        return new AWSHandler(provider, game).destroyInstance(server);
       case ProviderType.Azure:
         return new AzureHandler(provider, game).destroyInstance(server);
       case ProviderType.DigitalOcean:

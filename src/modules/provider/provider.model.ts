@@ -5,6 +5,7 @@ import { Document } from 'mongoose';
 export enum ProviderType {
   KubernetesNode = 'KUBERNETES_NODE',
   GCloud = 'GCLOUD',
+  AWS = 'AWS',
   Azure = 'AZURE',
   DigitalOcean = 'DIGITAL_OCEAN',
   Vultr = 'VULTR',
@@ -96,6 +97,16 @@ export class Provider extends Document {
     linodeSSHKeys?: string[];
     linodeSSHAccessKey?: string;
     linodeMachineSize?: string;
+
+    // AWS
+    awsAccessKey?: string;
+    awsSecretKey?: string;
+    awsRegion?: string;
+    awsImageName?: string;
+    awsInstanceType?: string;
+    awsSubnetId?: string;
+    awsSecurityGroupId?: string;
+    awsKeyName?: string;
   };
 }
 
