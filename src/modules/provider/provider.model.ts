@@ -11,6 +11,7 @@ export enum ProviderType {
   Vultr = 'VULTR',
   BinaryLane = 'BINARYLANE',
   Linode = 'LINODE',
+  Oneqode = 'ONEQODE',
 }
 
 @Schema()
@@ -107,6 +108,17 @@ export class Provider extends Document {
     awsSubnetId?: string;
     awsSecurityGroupId?: string;
     awsKeyName?: string;
+
+    // Oneqode
+    oneqodeRegion?: string;
+    oneqodeUsername?: string;
+    oneqodePassword?: string;
+    oneqodeProject?: string;
+    oneqodeZone?: string;
+    oneqodeKey?: string;
+    oneqodeImageName?: string;
+    oneqodeFlavor?: string;
+    oneqodeSSHAccessKey?: string;
   };
 }
 

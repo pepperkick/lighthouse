@@ -12,6 +12,7 @@ Supported Providers
 - Linode
 - Vultr
 - BinaryLane
+- OneQode
 
 ## Config
 

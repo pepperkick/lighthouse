@@ -22,6 +22,7 @@ export class Game extends Document {
       vultr: any;
       binarylane: any;
       linode: any;
+      oneqode: any;
     };
   };
 }

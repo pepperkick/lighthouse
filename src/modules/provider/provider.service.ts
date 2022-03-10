@@ -16,6 +16,7 @@ import { Client } from '../clients/client.model';
 import { BinaryLaneHandler } from './provider-handlers/binarylane.class';
 import { LinodeHandler } from './provider-handlers/linode.class';
 import { AWSHandler } from './provider-handlers/aws.class';
+import { OneqodeHandler } from './provider-handlers/oneqode.class';
 
 @Injectable()
 export class ProviderService {
@@ -104,6 +105,8 @@ export class ProviderService {
         return new BinaryLaneHandler(provider, game).createInstance(server);
       case ProviderType.Linode:
         return new LinodeHandler(provider, game).createInstance(server);
+      case ProviderType.Oneqode:
+        return new OneqodeHandler(provider, game).createInstance(server);
     }
   }
 
@@ -139,6 +142,8 @@ export class ProviderService {
         return new BinaryLaneHandler(provider, game).destroyInstance(server);
       case ProviderType.Linode:
         return new LinodeHandler(provider, game).destroyInstance(server);
+      case ProviderType.Oneqode:
+        return new OneqodeHandler(provider, game).destroyInstance(server);
     }
   }
 

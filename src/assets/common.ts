@@ -25,9 +25,15 @@ export const GCP_STARTUP_SCRIPT = `           #! /bin/bash
             done
             
             ${DOCKER_RUN_COMMAND}`;
+
 export const AWS_STARTUP_SCRIPT = `
   #! /bin/bash
   sudo service docker start
+  sudo ${DOCKER_RUN_COMMAND}
+`;
+
+export const ONEQODE_STARTUP_SCRIPT = `
+  #! /bin/bash
   sudo ${DOCKER_RUN_COMMAND}
 `;
 
@@ -152,7 +158,7 @@ export const AWS_DESTROY_PLAYBOOK = `
       filters:
         "tag:Name": "{{ app }}-{{ id }}"
     register: ec2
-  - name: Create booking instance
+  - name: Delete booking instance
     amazon.aws.ec2_instance:
       aws_access_key: "{{ aws_access_key }}"
       aws_secret_key: "{{ aws_secret_key }}"
@@ -160,4 +166,76 @@ export const AWS_DESTROY_PLAYBOOK = `
       state: absent
       instance_ids: '{{ item.instance_id }}'
     with_items: "{{ ec2.instances }}"
+  `;
+
+export const ONEQODE_CREATE_PLAYBOOK = `
+- name: Create Booking in OneQode
+  hosts: localhost
+  gather_facts: no
+  environment:
+    OS_ENDPOINT_TYPE: publicURL
+    OS_INTERFACE: publicURL
+    OS_USERNAME: {{ username }}
+    OS_PROJECT_ID: {{ project_id }}
+    OS_PASSWORD: {{ password }}
+    OS_AUTH_URL: https://api.ocs.oneqode.com:5000/v3
+    OS_NO_CACHE: 1
+    OS_USER_DOMAIN_ID: default
+    OS_PROJECT_DOMAIN_ID: default
+    OS_REGION_NAME: {{ region }}
+    OS_IDENTITY_API_VERSION: 3
+    OS_AUTH_VERSION: 3
+  tasks:
+  - name: Launch an instance
+    openstack.cloud.server:
+      state: present
+      name: {{ app }}-{{ id }}
+      region_name: "{{ region }}"
+      availability_zone: "{{ zone }}"
+      image: "{{ image }}"
+      key_name: lighthouse
+      timeout: 200
+      flavor: "{{ flavor }}"
+      security_groups: fleio
+      auto_ip: yes
+      userdata: "{{ startup_script }}"
+    register: instance
+  - debug:
+      msg: "{{ instance }}"
+  - name: Wait for SSH to come up
+    wait_for: 
+      host: "{{ instance.server.public_v4 }}"
+      port: 22 
+      delay: 5 
+      timeout: 120 
+      state: started
+  - name: Creating a file with IP
+    copy:
+      dest: "./oneqode-ip-{{ id }}"
+      content: |
+        {{ instance.server.public_v4 }}
+  `;
+
+export const ONEQODE_DESTROY_PLAYBOOK = `
+- name: Destroy Booking in OneQode
+  hosts: localhost
+  gather_facts: no
+  environment:
+    OS_ENDPOINT_TYPE: publicURL
+    OS_INTERFACE: publicURL
+    OS_USERNAME: {{ username }}
+    OS_PROJECT_ID: {{ project_id }}
+    OS_PASSWORD: {{ password }}
+    OS_AUTH_URL: https://api.ocs.oneqode.com:5000/v3
+    OS_NO_CACHE: 1
+    OS_USER_DOMAIN_ID: default
+    OS_PROJECT_DOMAIN_ID: default
+    OS_REGION_NAME: {{ region }}
+    OS_IDENTITY_API_VERSION: 3
+    OS_AUTH_VERSION: 3
+  tasks:
+  - name: Delete booking instance
+    openstack.cloud.server:
+      name: {{ app }}-{{ id }}
+      state: absent
   `;
