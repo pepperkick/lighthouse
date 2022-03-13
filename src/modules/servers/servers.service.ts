@@ -228,7 +228,7 @@ export class ServersService {
       );
 
     // Fetch the provider
-    const provider = await this.providerService.get(options.provider);
+    let provider = await this.providerService.get(options.provider);
     if (!provider) throw new BadRequestException('Invalid provider');
 
     // Check if the client can access the provider
@@ -236,6 +236,32 @@ export class ServersService {
       throw new ForbiddenException(
         'Client does not have access to the provider',
       );
+
+    // Get the least in use provider
+    if (provider.type == ProviderType.LoadBalancer) {
+      const providers = provider.metadata.loadBalancerProviders;
+      const usage: { id: string; count: number; weight: number }[] = [];
+
+      for (const provider of providers) {
+        const providerServers = await this.getActiveServersForProvider(
+          provider.id,
+        );
+        usage.push({
+          id: provider.id,
+          count: providerServers.length,
+          weight: provider.weight,
+        });
+      }
+
+      // Pick the least used provider based on server count and weight
+      const leastUsedProvider = usage.reduce((prev, curr) => {
+        return prev.count * prev.weight < curr.count * curr.weight
+          ? prev
+          : curr;
+      });
+
+      provider = await this.providerService.get(leastUsedProvider.id);
+    }
 
     // Check if provider can handle the request
     const servers = await this.repository.find({
@@ -432,8 +458,8 @@ export class ServersService {
   async initializeServer(server: Server): Promise<void> {
     await this.updateStatusAndNotify(server, ServerStatus.ALLOCATING);
 
-    const provider = await this.providerService.get(server.provider);
     const game = await this.gameService.getBySlug(server.game);
+    const provider = await this.providerService.get(server.provider);
     let data;
 
     // Fetch inuse ports for kubernetes provider

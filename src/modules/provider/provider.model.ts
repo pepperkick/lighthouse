@@ -3,6 +3,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
 export enum ProviderType {
+  LoadBalancer = 'LOAD_BALANCER',
   KubernetesNode = 'KUBERNETES_NODE',
   GCloud = 'GCLOUD',
   AWS = 'AWS',
@@ -40,6 +41,9 @@ export class Provider extends Document {
       time: number;
       min: number;
     };
+
+    // LoadBalancer
+    loadBalancerProviders?: { id: string; weight: number }[];
 
     // Kubernetes
     kubeConfig?: string;

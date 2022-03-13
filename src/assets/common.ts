@@ -34,6 +34,7 @@ export const AWS_STARTUP_SCRIPT = `
 
 export const ONEQODE_STARTUP_SCRIPT = `
   #! /bin/bash
+  sudo service docker start
   sudo ${DOCKER_RUN_COMMAND}
 `;
 
