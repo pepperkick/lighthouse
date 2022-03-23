@@ -3,6 +3,7 @@ export enum ServerStatus {
   INIT = 'INIT', // Request for server creation received
   ALLOCATING = 'ALLOCATING', // Allocating resources with tre provider
   WAITING = 'WAITING', // Wait for first heartbeat
+  SETTING_UP = 'SETTING_UP', // Setting up the server
   IDLE = 'IDLE', // Server is running but not in use (no players playing)
   RUNNING = 'RUNNING', // Server is running and being used (some players are in it)
   CLOSING = 'CLOSING', // Server is going to close state

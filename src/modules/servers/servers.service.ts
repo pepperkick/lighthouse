@@ -571,6 +571,7 @@ export class ServersService {
       });
 
       this.logger.log(`Received first heartbeat for server ${server.id}`);
+      await this.setCloseTime(server, server.data.closeIdleTime);
       await this.runInitialSetup(server);
       await this.updateStatusAndNotify(server, ServerStatus.IDLE);
       await this.setCloseTime(server, 0);
@@ -583,6 +584,8 @@ export class ServersService {
   }
 
   async runInitialSetup(server: Server): Promise<boolean> {
+    await this.updateStatusAndNotify(server, ServerStatus.SETTING_UP);
+
     if (server.game !== Game.TF2) return;
 
     const rcon = new Rcon({
@@ -695,9 +698,14 @@ export class ServersService {
         if (error.code === 'ECONNREFUSED') {
           this.logger.warn(`Failed to connect callback URL "${callback}"`);
         } else {
-          this.logger.error('Failed to notify callback URL', error);
+          this.logger.error(
+            `Failed to notify callback URL "${callback}"`,
+            error,
+          );
         }
       }
+    } else {
+      this.logger.log(`Updating status '${server.status} (${server._id})'`);
     }
 
     await server.save();
