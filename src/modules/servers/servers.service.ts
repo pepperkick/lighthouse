@@ -524,6 +524,7 @@ export class ServersService {
         { status: ServerStatus.UNKNOWN },
         { status: ServerStatus.IDLE },
         { status: ServerStatus.WAITING },
+        { status: ServerStatus.SETTING_UP },
       ],
     });
     for (const server of idleServers) {
@@ -548,7 +549,10 @@ export class ServersService {
         { status: ServerStatus.RUNNING },
       ],
     });
-    this.logger.debug(`Found ${activeServers.length} running servers...`);
+    this.logger.debug(
+      `Found ${activeServers.length} running servers...`,
+      `${ServersService.name}::monitor`,
+    );
     for (const server of activeServers) {
       setTimeout(async () => {
         await this.checkForMinimumPlayers(server);
@@ -570,7 +574,10 @@ export class ServersService {
         type: game.data.queryType,
       });
 
-      this.logger.log(`Received first heartbeat for server ${server.id}`);
+      this.logger.log(
+        `Received first heartbeat for server ${server.id}`,
+        `${ServersService.name}::checkForHeartbeat`,
+      );
       await this.setCloseTime(server, server.data.closeIdleTime);
       await this.runInitialSetup(server);
       await this.updateStatusAndNotify(server, ServerStatus.IDLE);
@@ -578,6 +585,7 @@ export class ServersService {
     } catch (exception) {
       this.logger.debug(
         `Failed to query server ${server.id} (${server.ip}:${server.port}) due to ${exception}`,
+        `${ServersService.name}::checkForHeartbeat`,
       );
       await this.setCloseTime(server, server.data.closeIdleTime);
     }
@@ -595,27 +603,45 @@ export class ServersService {
     });
 
     if (server.data.sdrEnable) {
-      await rcon.connect();
-      const status = await rcon.send('status');
-      this.logger.debug(status);
-      await rcon.disconnect();
+      let retry = 3;
+      while (retry-- > 0) {
+        await rcon.connect();
+        const status = await rcon.send('status');
+        await rcon.disconnect();
 
-      const [ip, port] = status
-        .split('\n')
-        .filter(line => line.indexOf('udp/ip') === 0)[0]
-        .split(' ')[3]
-        .split(':');
+        this.logger.debug(
+          `Status response for server (${retry} / 3): ${status}`,
+          `${ServersService.name}::runInitialSetup::${server.id}`,
+        );
 
-      this.logger.debug(`SDR Info ${ip}:${port}`);
+        if (status != '') {
+          const [ip, port] = status
+            .split('\n')
+            .filter(line => line.indexOf('udp/ip') === 0)[0]
+            .split(' ')[3]
+            .split(':');
 
-      server.data.sdrIp = ip;
-      server.data.sdrPort = parseInt(port);
-      server.data.sdrTvPort = parseInt(port) + 1;
-      server.markModified('data');
-      await server.save();
+          this.logger.debug(`SDR Info ${ip}:${port}`);
+
+          server.data.sdrIp = ip;
+          server.data.sdrPort = parseInt(port);
+          server.data.sdrTvPort = parseInt(port) + 1;
+          server.markModified('data');
+          await server.save();
+
+          break;
+        }
+
+        await sleep(1000 * 5);
+      }
     }
 
     if (server.data.map && server.data.map !== 'cp_badlands') {
+      this.logger.debug(
+        `Changing map to '${server.data.map}'...`,
+        `${ServersService.name}::runInitialSetup::${server.id}`,
+      );
+
       await rcon.connect();
       await rcon.send(`changelevel ${server.data.map}`);
       await rcon.disconnect();
@@ -624,6 +650,11 @@ export class ServersService {
     }
 
     if (server.data.config) {
+      this.logger.debug(
+        `Changing config to '${server.data.config}'...`,
+        `${ServersService.name}::runInitialSetup::${server.id}`,
+      );
+
       await rcon.connect();
       await rcon.send(`exec ${server.data.config}`);
       await rcon.disconnect();
