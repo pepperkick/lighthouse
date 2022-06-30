@@ -623,13 +623,15 @@ export class ServersService {
 
           this.logger.debug(`SDR Info ${ip}:${port}`);
 
-          server.data.sdrIp = ip;
-          server.data.sdrPort = parseInt(port);
-          server.data.sdrTvPort = parseInt(port) + 1;
-          server.markModified('data');
-          await server.save();
+          if (ip !== '?.?.?.?') {
+            server.data.sdrIp = ip;
+            server.data.sdrPort = parseInt(port);
+            server.data.sdrTvPort = parseInt(port) + 1;
+            server.markModified('data');
+            await server.save();
 
-          break;
+            break;
+          }
         }
 
         await sleep(1000 * 5);
