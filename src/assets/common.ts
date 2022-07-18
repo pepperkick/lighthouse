@@ -195,7 +195,7 @@ export const ONEQODE_CREATE_PLAYBOOK = `
       availability_zone: "{{ zone }}"
       image: "{{ image }}"
       key_name: lighthouse
-      timeout: 200
+      timeout: 600
       flavor: "{{ flavor }}"
       security_groups: fleio
       auto_ip: yes
@@ -208,7 +208,7 @@ export const ONEQODE_CREATE_PLAYBOOK = `
       host: "{{ instance.server.public_v4 }}"
       port: 22 
       delay: 5 
-      timeout: 120 
+      timeout: 240 
       state: started
   - name: Creating a file with IP
     copy:
