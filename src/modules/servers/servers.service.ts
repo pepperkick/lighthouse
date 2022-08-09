@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ForbiddenException,
   HttpException,
+  Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
@@ -27,6 +28,9 @@ import * as process from 'process';
 import * as sleep from 'await-sleep';
 import { Game } from '../../objects/game.enum';
 import { Tf2Chart } from '../games/charts/tf2.chart';
+import { TraceService } from '@metinseylan/nestjs-opentelemetry';
+import { context, Span, SpanStatusCode, trace } from '@opentelemetry/api';
+import opentelemetry from '@opentelemetry/api';
 
 export const SERVER_ACTIVE_STATUS_CONDITION = [
   { status: ServerStatus.INIT },
@@ -43,6 +47,7 @@ const { KubeConfig } = require('kubernetes-client');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const Request = require('kubernetes-client/backends/request');
 
+@Injectable()
 export class ServersService {
   private readonly logger = new Logger(ServersService.name);
   private readonly kube: ApiClient.ApiRoot;
@@ -51,6 +56,7 @@ export class ServersService {
     @InjectModel(Server.name) private repository: Model<Server>,
     private readonly providerService: ProviderService,
     private readonly gameService: GamesService,
+    private readonly tracer: TraceService,
   ) {
     if (process.env.LIGHTHOUSE_OPERATION_NO_KUBE !== 'true') {
       const kubeconfig = new KubeConfig();
@@ -413,49 +419,83 @@ export class ServersService {
    * @param server
    */
   async processRequest(server: Server): Promise<boolean> {
+    const tracer = trace.getTracer('default');
+    const attrs = {
+      'server.id': server._id,
+      'server.status': server.status,
+      'server.game': server.game,
+      'server.provider': server.provider,
+      'server.region': server.region,
+      'server.client': server.client,
+      'server.image': server.image,
+    };
+
     this.logger.log(
       `Current status of the server ${server._id} is ${server.status}`,
     );
 
+    let success = false;
     if (server.status === ServerStatus.INIT) {
-      try {
-        await this.initializeServer(server);
-      } catch (exception) {
-        this.logger.error(
-          `Failed to initialize server ${exception}`,
-          exception.stack,
-        );
-        await this.updateStatusAndNotify(server, ServerStatus.FAILED);
-        return false;
-      }
+      const span = tracer.startSpan(`Servers->create`);
+      await context.with(trace.setSpan(context.active(), span), async () => {
+        span.setAttributes(attrs);
+        span.setAttribute('server.action', 'create');
+
+        try {
+          await this.initializeServer(server, span);
+          success = true;
+        } catch (exception) {
+          this.logger.error(
+            `Failed to initialize server ${exception}`,
+            exception.stack,
+          );
+          span.recordException(exception);
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: `Failed to initialize server ${exception}`,
+          });
+          await this.updateStatusAndNotify(server, ServerStatus.FAILED);
+        }
+      });
+      span.end();
     } else if (server.status === ServerStatus.CLOSING) {
-      try {
-        await this.closeServer(server);
-      } catch (exception) {
-        this.logger.error(
-          `Failed to close server ${exception}`,
-          exception.stack,
-        );
-        await this.updateStatusAndNotify(server, ServerStatus.FAILED);
-        return false;
-      }
+      const span = tracer.startSpan(`Servers->destroy`);
+      await context.with(trace.setSpan(context.active(), span), async () => {
+        try {
+          await this.closeServer(server, span);
+          success = true;
+        } catch (exception) {
+          this.logger.error(
+            `Failed to close server ${exception}`,
+            exception.stack,
+          );
+          span.recordException(exception);
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: `Failed to close server ${exception}`,
+          });
+          await this.updateStatusAndNotify(server, ServerStatus.FAILED);
+        }
+      });
+      span.end();
     } else {
       this.logger.error(
         `Server (${server._id}) is in wrong state ${server.status} to be processed.`,
       );
       await this.updateStatusAndNotify(server, ServerStatus.FAILED);
-      return false;
     }
 
-    return true;
+    return success;
   }
 
   /**
    * Start a new server
    *
    * @param server
+   * @param span
    */
-  async initializeServer(server: Server): Promise<void> {
+  async initializeServer(server: Server, span: Span): Promise<void> {
+    span.addEvent('serverInitialize');
     await this.updateStatusAndNotify(server, ServerStatus.ALLOCATING);
 
     const game = await this.gameService.getBySlug(server.game);
@@ -477,6 +517,7 @@ export class ServersService {
       provider,
       server,
       game,
+      span,
       data,
     );
     await this.updateStatusAndNotify(server, ServerStatus.WAITING);
@@ -491,15 +532,17 @@ export class ServersService {
    * Close a server
    *
    * @param server
+   * @param span
    */
-  async closeServer(server: Server): Promise<void> {
+  async closeServer(server: Server, span: Span): Promise<void> {
+    span.addEvent('serverClose');
     this.logger.log(`Closing server ${server.id}`);
 
     await this.updateStatusAndNotify(server, ServerStatus.DEALLOCATING);
 
     const game = await this.gameService.getBySlug(server.game);
     const provider = await this.providerService.get(server.provider);
-    await this.providerService.deleteInstance(provider, server, game);
+    await this.providerService.deleteInstance(provider, server, game, span);
 
     await this.updateStatusAndNotify(server, ServerStatus.CLOSED);
 

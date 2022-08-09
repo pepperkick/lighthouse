@@ -6,6 +6,7 @@ import { Tf2Chart } from '../games/charts/tf2.chart';
 import { ValheimChart } from '../games/charts/valheim.chart';
 import { MinecraftChart } from '../games/charts/minecraft.chart';
 import { renderString } from '../../string.util';
+import { Span } from '@opentelemetry/sdk-trace-base';
 
 export interface ProviderGameScripts {
   tf2: string;
@@ -22,11 +23,11 @@ export class Handler {
     );
   }
 
-  createInstance(server: Server): Promise<Server> {
+  createInstance(server: Server, span: Span): Promise<Server> {
     throw new NotImplementedException();
   }
 
-  destroyInstance(server: Server): Promise<void> {
+  destroyInstance(server: Server, span: Span): Promise<void> {
     throw new NotImplementedException();
   }
 

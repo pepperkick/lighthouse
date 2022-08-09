@@ -20,5 +20,11 @@
     "enabled": true,
     "interval": 30
   },
+  "tracing": {
+    "name": "",
+    "jaeger": {
+      "endpoint": ""
+    }
+  },
   "kubeConfig": ""
 }

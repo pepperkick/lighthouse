@@ -14,6 +14,7 @@ import {
 import { GCP_STARTUP_SCRIPT as TF2_STARTUP_SCRIPT } from '../../../assets/tf2';
 import { GCP_STARTUP_SCRIPT as VALHEIM_STARTUP_SCRIPT } from '../../../assets/valheim';
 import { GCP_STARTUP_SCRIPT as MINECRAFT_STARTUP_SCRIPT } from '../../../assets/minecraft';
+import { Span } from '@opentelemetry/api';
 
 const CREATE_PLAYBOOK = GCP_CREATE_PLAYBOOK;
 const DESTROY_PLAYBOOK = GCP_DESTROY_PLAYBOOK;
@@ -50,7 +51,11 @@ export class GCloudHandler extends Handler {
     this.region = this.compute.region(provider.metadata.gcpRegion);
   }
 
-  async createInstance(server: Server): Promise<Server> {
+  async createInstance(server: Server, span: Span): Promise<Server> {
+    span.addEvent('serverCreateInstanceGcp', {
+      provider: this.provider.id,
+      server: server.id,
+    });
     const [_server, script] = this.getDefaultOptions(server, {
       tf2: TF2_STARTUP_SCRIPT,
       minecraft: MINECRAFT_STARTUP_SCRIPT,
@@ -92,7 +97,11 @@ export class GCloudHandler extends Handler {
     return server;
   }
 
-  async destroyInstance(server: Server): Promise<void> {
+  async destroyInstance(server: Server, span: Span): Promise<void> {
+    span.addEvent('serverDestroyInstanceGcp', {
+      provider: this.provider.id,
+      server: server.id,
+    });
     const playbook = renderString(DESTROY_PLAYBOOK, {
       app: label,
       gcp_cred_file: `./gcloud-${this.provider.id}-${this.project}.key.json`,

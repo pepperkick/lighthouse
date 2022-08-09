@@ -9,6 +9,7 @@ import { Tf2Chart } from '../../games/charts/tf2.chart';
 import { ValheimChart } from '../../games/charts/valheim.chart';
 import { MinecraftChart } from '../../games/charts/minecraft.chart';
 import * as config from '../../../../config.json';
+import { Span } from '@opentelemetry/api';
 
 const label = config.instance.label;
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -50,7 +51,12 @@ export class KubernetesHandler extends Handler {
     }
   }
 
-  async createInstance(server: Server): Promise<Server> {
+  async createInstance(server: Server, span: Span): Promise<Server> {
+    span.addEvent('serverCreateInstanceKubernetes', {
+      provider: this.provider.id,
+      server: server.id,
+    });
+
     try {
       const hostname = this.provider.metadata.kubeHostname;
       server.image = server.image || this.provider.metadata.image;
@@ -96,7 +102,12 @@ export class KubernetesHandler extends Handler {
     }
   }
 
-  async destroyInstance(server: Server): Promise<void> {
+  async destroyInstance(server: Server, span: Span): Promise<void> {
+    span.addEvent('serverDestroyInstanceKubernetes', {
+      provider: this.provider.id,
+      server: server.id,
+    });
+
     try {
       await this.kube.apis.app.v1
         .namespaces(this.namespace)

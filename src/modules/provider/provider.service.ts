@@ -17,6 +17,7 @@ import { BinaryLaneHandler } from './provider-handlers/binarylane.class';
 import { LinodeHandler } from './provider-handlers/linode.class';
 import { AWSHandler } from './provider-handlers/aws.class';
 import { OneqodeHandler } from './provider-handlers/oneqode.class';
+import { Span } from '@opentelemetry/api';
 
 @Injectable()
 export class ProviderService {
@@ -74,14 +75,21 @@ export class ProviderService {
    * @param provider
    * @param server
    * @param game
+   * @param span
    * @param data - Custom data to use by providers
    * */
   async createInstance(
     provider: Provider,
     server: Server,
     game: Game,
+    span: Span,
     data?: KubeData,
   ): Promise<any> {
+    span.addEvent('serverCreateInstance', {
+      server: server.id,
+      provider: provider.id,
+      'provider.type': provider.type,
+    });
     this.logger.debug(
       `Creating resources for server '${server.id}' using provider '${provider.id}' for game '${game.name}'`,
     );
@@ -90,9 +98,10 @@ export class ProviderService {
       case ProviderType.KubernetesNode:
         return new KubernetesHandler(provider, game, data).createInstance(
           server,
+          span,
         );
       case ProviderType.GCloud:
-        return new GCloudHandler(provider, game).createInstance(server);
+        return new GCloudHandler(provider, game).createInstance(server, span);
       case ProviderType.AWS:
         return new AWSHandler(provider, game).createInstance(server);
       case ProviderType.Azure:
@@ -116,20 +125,28 @@ export class ProviderService {
    * @param provider
    * @param server
    * @param game
+   * @param span
    * */
   async deleteInstance(
     provider: Provider,
     server: Server,
     game: Game,
+    span: Span,
   ): Promise<void> {
+    span.addEvent('serverDestroyInstance', {
+      server: server.id,
+      provider: provider.id,
+      'provider.type': provider.type,
+    });
     this.logger.debug(`Deleting instance id ${server.id} at ${provider.id}`);
     switch (provider.type) {
       case ProviderType.KubernetesNode:
         return new KubernetesHandler(provider, game, null).destroyInstance(
           server,
+          span,
         );
       case ProviderType.GCloud:
-        return new GCloudHandler(provider, game).destroyInstance(server);
+        return new GCloudHandler(provider, game).destroyInstance(server, span);
       case ProviderType.AWS:
         return new AWSHandler(provider, game).destroyInstance(server);
       case ProviderType.Azure:

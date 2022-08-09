@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
+import opentelemetry, { context, trace } from '@opentelemetry/api';
 
 const logger = new Logger('Main');
 
